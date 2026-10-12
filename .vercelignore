@@ -1,0 +1,17 @@
+.git
+.vercel
+.agents
+.codex
+.opencode
+AGENTS.md
+CLAUDE.md
+docs
+node_modules
+**/node_modules
+dist
+dist-ssr
+coverage
+.eslintcache
+*.log
+*.zip
+*.local
