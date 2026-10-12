@@ -44,3 +44,9 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Local agent guidance and personal scripts
+/AGENTS.md
+/CLAUDE.md
+/dev.bat
+/pack.ps1
