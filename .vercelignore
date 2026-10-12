@@ -2,10 +2,13 @@
 .vercel
 .agents
 .codex
+.claude
 .opencode
 AGENTS.md
 CLAUDE.md
+skills-lock.json
 docs
+NeteaseCloudMusicApi/public
 node_modules
 **/node_modules
 dist

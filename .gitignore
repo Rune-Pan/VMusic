@@ -29,6 +29,11 @@ coverage
 .eslintcache
 .vercel
 .codex
+.agents
+.claude
+.opencode
+skills-lock.json
+NeteaseCloudMusicApi/public
 
 # Cypress
 /cypress/videos/

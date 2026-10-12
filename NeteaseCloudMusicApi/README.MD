@@ -1,8 +1,4 @@
 <p align="center">
-  <img src="./public/static/neteaselogo.png" alt="网易云音乐 API Enhanced Logo" />
-</p>
-
-<p align="center">
   <a href="https://www.npmjs.com/package/@neteasecloudmusicapienhanced/api">
     <img src="https://img.shields.io/npm/v/@neteasecloudmusicapienhanced/api?style=flat-square" alt="NPM Version" />
   </a>

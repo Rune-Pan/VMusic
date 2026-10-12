@@ -7,7 +7,7 @@
   "regions": ["hkg1"],
   "functions": {
     "api/index.js": {
-      "includeFiles": "NeteaseCloudMusicApi/{module,util,plugins,data,public}/**",
+      "includeFiles": "NeteaseCloudMusicApi/{module,util,plugins,data}/**",
       "maxDuration": 60
     }
   },
