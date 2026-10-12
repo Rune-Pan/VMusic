@@ -1,177 +1,106 @@
----
-name: 听潮 UI 设计方案
-overview: 听潮 基于 Vue 3 的音乐 Web 单页应用 UI 方案。采用深色 OLED + 毛玻璃（Glassmorphism）视觉风格，融合沉浸式播放页与微交互。本文档描述设计系统（配色/字体/间距/动效）、7 个页面级视图布局、共享组件清单与文件结构，与当前代码实现同步。
-design:
-  architecture:
-    framework: vue
-  styleKeywords:
-    - Dark Mode OLED
-    - Glassmorphism
-    - Modern
-    - Immersive
-    - Micro-interactions
-  fontSystem:
-    fontFamily: Poppins
-    heading:
-      size: 28px
-      weight: 700
-    subheading:
-      size: 18px
-      weight: 600
-    body:
-      size: 14px
-      weight: 400
-  colorSystem:
-    primary:
-      - "#3B82F6"
-      - "#60A5FA"
-      - "#F97316"
-    background:
-      - "#0A0E27"
-      - "#1E1E2E"
-      - "#121218"
-    text:
-      - "#FFFFFF"
-      - "#A0A0B8"
-      - "#6B7280"
-    functional:
-      - "#22C55E"
-      - "#EF4444"
-      - "#F59E0B"
----
+# 听潮 UI 设计方案
 
-## 产品概述
+[文档导航](./README.md) · [功能设计](./功能设计说明书.md)
 
-听潮 是一个基于 Vue 3 的单页 Web 音乐平台，参考 YesPlayMusic 的设计风格。平台支持手机号/扫码登录、音乐发现（推荐/每日推荐/排行榜/分类）、沉浸式播放、歌单管理（创建/收藏分类）、多类型搜索与个人中心，采用深色 OLED 主题为主、浅色与跟随系统可切换，融合毛玻璃导航栏与播放栏，定位为高颜值现代音乐平台。
+本文记录当前界面的设计规则，便于页面扩展时保持一致。
+项目主要面向桌面浏览器，移动端适配已移除；不以手机或平板布局作为已完成成果。
 
-## 核心功能与视图
+## 设计目标
 
-- **登录页（LoginView）**：账号登录 / 二维码扫码登录切换，主题切换入口，毛玻璃表单卡片
-- **推荐首页（HomeView）**：毛玻璃导航栏 + 分类筛选 + 歌单卡片网格（响应式 5/4/3/2 列）
-- **播放详情页（PlayerView）**：沉浸式，隐藏导航栏，左右分栏（封面 + 歌词同步滚动），PlayerBar 透明融入
-- **歌单详情页（PlaylistView）**：歌单信息区（封面/创建者/简介）+ 播放全部/收藏/评论/分享按钮 + 带表头的歌曲列表 + 加载更多
-- **每日推荐（DailyRecommendView）**：推荐歌曲 / 推荐歌单双 Tab
-- **排行榜（ToplistView）**：分类 Tab + 榜单卡片网格（含前三首预览）
-- **个人中心（ProfileView）**：侧边菜单 + 喜欢的歌曲 / 我的歌单（创建/收藏分类）/ 播放历史（本地+服务端）/ 个人设置
-- **全局搜索覆盖层（SearchResultsOverlay）**：歌曲/歌单/歌手/专辑多类型搜索结果
-
-## Tech Stack
-
-- **框架**：Vue 3（Composition API + `<script setup>`）+ Vite
-- **路由**：Vue Router（createWebHistory + scrollBehavior）
-- **状态管理**：Pinia
-- **样式方案**：SCSS + CSS 自定义属性实现深浅/跟随系统主题切换（`data-theme="dark|light"`，`auto` 跟随系统）
-- **图标库**：lucide-vue-next
-- **音频**：Howler.js
-- **字体**：Google Fonts Poppins + 中文系统字体回退（PingFang SC / Microsoft YaHei 等）
-- **API 层**：Axios 封装，`baseURL` 由 `VITE_NETEASE_API_URL` 决定，开发经 Vite 代理到本地 NeteaseCloudMusicApi
-- **持久缓存**：Dexie（IndexedDB），SWR 模式 + LRU 淘汰，集中封装于 `src/utils/db.js`。缓存歌词（7天）/歌曲详情（1天）/歌单详情（1小时）/音频 url（30分钟），减少重复请求与跨刷新重拉。
+- 浏览页面优先展示音乐内容，将播放控制集中在底部播放栏。
+- 播放详情页提供封面与歌词的沉浸式体验。
+- 通过主题变量统一颜色、间距、圆角和层级，避免每个页面单独定义一套样式。
+- 请求中的骨架屏、无内容的空态、失败提示和重试入口分别表达不同状态。
 
 ## 设计系统
 
-所有设计 token 集中在 `src/assets/styles/variables.scss`，通过 CSS 自定义属性提供，深色主题在 `[data-theme='dark']` 下覆盖。
+| 资源                                                      | 作用                                     |
+| --------------------------------------------------------- | ---------------------------------------- |
+| [variables.scss](../src/assets/styles/variables.scss)     | CSS 自定义属性：颜色、尺寸、圆角、层级等 |
+| [global.scss](../src/assets/styles/global.scss)           | 全局排版、字体、基础控件与通用样式       |
+| [transitions.scss](../src/assets/styles/transitions.scss) | 路由、弹窗等过渡效果                     |
+| [useTheme.js](../src/composables/useTheme.js)             | 主题模式与主题色的应用、持久化           |
+| [constants.js](../src/constants.js)                       | 主题选项、歌词字号、默认值               |
 
-- **主色**：`#3B82F6`（蓝），hover `#60A5FA`，CTA `#F97316`（橙）
-- **背景**：浅色 `#F8FAFC` / 卡片 `#FFFFFF`；深色 body `#0A0E27` / 卡片 `#1E1E2E`
-- **导航栏/播放栏**：半透明 + `backdrop-filter: saturate(180%) blur(20px)` 实现毛玻璃
-- **间距**：`--spacing-xs/sm/md/lg/xl/2xl/3xl`（4/8/16/24/32/48/64px）
-- **圆角**：`--radius-sm/md/lg/xl/full`（6/8/12/16/9999px）
-- **过渡**：fast 150ms / base 200ms / slow 300ms
-- **Z-index 层级**：dropdown 100 / navbar & player 500 / modal 1000 / toast 1100
+默认主色为蓝色 `#3b82f6`。主色用于按钮、选中标签、链接和歌词高亮，
+成功、警告和错误使用对应的语义色。
+主题模式为浅色、深色、跟随系统；主题色提供默认、紫罗、玫红、碧波四项。
+主题色的深浅配色以 `THEME_COLOR_OPTIONS` 为准。
 
-## 布局与沉浸式播放
+字体为 Poppins 与系统中文字体回退；图标使用 `@lucide/vue`。
+外部字体不可用时继续使用回退字体。
 
-`App.vue` 的 `.app-container` 为 flex 列布局，`.main-content` 用 `padding-top` 给固定定位 Navbar 让位、`padding-bottom` 给 PlayerBar 让位，并带 `transition: padding-top 0.3s ease` 平滑过渡。
+| Token      | 当前范围或值                                                        |
+| ---------- | ------------------------------------------------------------------- |
+| 间距       | `--spacing-xs` 至 `--spacing-3xl`，4 / 8 / 16 / 24 / 32 / 48 / 64px |
+| 圆角       | `--radius-sm/md/lg/xl/full`，6 / 8 / 12 / 16 / 9999px               |
+| 导航栏高度 | `--navbar-height: 64px`                                             |
+| 播放栏高度 | `--player-height: 88px`                                             |
+| 层级       | 下拉 100、导航与播放栏 500、弹窗 1000、Toast 1100                   |
 
-进入 `/player/:id` 时：
-- `Navbar` 通过 `v-if` 隐藏（`showNavbar = isLoggedIn && !isPlayerPage`）
-- `.player-view` 改用 `position: fixed; inset: 0` 直接占满视口，背景延伸到底部
-- `PlayerBar` 加 `immersive` 类：背景与边框透明，融入播放页
+页面尽量引用这些变量。调整尺寸或主题时先修改来源文件，再检查组件效果。
 
-路由切换使用 `<transition name="fade" mode="out-in">`，**各视图必须保持单根节点**（多根会破坏过渡动画，导致返回上一级页面空白）。
+## 全局布局
 
-## 页面设计
+[App.vue](../src/App.vue) 以纵向 flex 布局连接页面与全局组件。
+导航栏和播放栏固定定位，主内容区按可见状态预留上下空间。
 
-### 1. 登录页（LoginView）
+- 登录页不显示全局导航栏。
+- 登录后浏览页面显示导航与搜索入口。
+- 有当前曲目时显示底部 `PlayerBar`，跨页面共享播放状态。
+- 进入 `/player/:id` 隐藏导航栏，播放栏使用透明背景融入封面背景。
+- 路由内容使用 `fade` 与 `mode="out-in"`；各视图必须保持单根节点。
 
-- **布局**：全屏深色背景，居中毛玻璃表单卡片
-- **内容**：账号登录 / 扫码登录 Tab 切换；账号模式含账号、密码输入与显隐切换；扫码模式展示二维码与刷新；右上角主题切换按钮
-- **交互**：表单校验，登录成功跳转首页，已登录访问自动重定向首页
+## 页面布局与交互
 
-### 2. 推荐首页（HomeView）
+| 页面                          | 布局                             | 主要状态与交互                                                      |
+| ----------------------------- | -------------------------------- | ------------------------------------------------------------------- |
+| 登录 `LoginView`              | 居中登录卡片与主题切换入口       | 扫码 / 账号模式；账号内切换密码与验证码；加载、校验和二维码过期状态 |
+| 首页 `HomeView`               | 分类标签与歌单卡片网格           | 标签选中态、骨架屏、空态；点击歌单进入详情                          |
+| 播放 `PlayerView`             | 全屏模糊封面背景，封面与歌词分栏 | 歌词高亮与滚动、播放控制、翻译显示；支持退出播放页                  |
+| 歌单 `PlaylistView`           | 封面信息区、操作区与歌曲表格     | 播放、评论、分享、加载更多；自己的歌单显示本地移除操作              |
+| 每日推荐 `DailyRecommendView` | 标题、歌曲 / 歌单双 Tab          | 曲目列表、歌单卡片、播放全部                                        |
+| 排行榜 `ToplistView`          | 分类 Tab 与榜单卡片网格          | 前三首预览；播放时获取完整榜单曲目                                  |
+| 个人中心 `ProfileView`        | 用户侧栏与右侧内容               | 喜欢 / 歌单 / 历史 / 设置菜单；历史模式和设置分组                   |
+| 歌手 `ArtistView`             | 头像与介绍、歌曲 / 专辑 Tab      | 分页滚动加载、专辑重试和加载到底提示；专辑当前只展示                |
 
-- **布局**：顶部 64px 固定毛玻璃导航栏 + 主内容区（最大宽度 1400px 居中）
-- **导航栏**：左 logo，中导航链接（首页/每日推荐/排行榜/个人中心），右主题切换 + 搜索框 + 用户头像下拉菜单
-- **分类筛选**：横向标签栏，从服务端获取分类，选中主色高亮
-- **歌单卡片网格**：响应式 5/4/3/2 列，卡片含封面 + 歌名 + 歌手，悬停上浮显示播放按钮
-
-### 3. 播放详情页（PlayerView）— 沉浸式
-
-- **布局**：`position: fixed; inset: 0`，隐藏导航栏，左右分栏（左 40% + 右 60%）
-- **左侧**：大尺寸方形封面（280px，带模糊光晕）+ 歌名 + 歌手 + 专辑
-- **右侧**：歌词居中排列，当前行高亮放大加粗，自动平滑滚动至当前行，点击歌词行跳转播放进度
-- **底部**：PlayerBar 透明背景，提供完整播放控制
-
-### 4. 歌单详情页（PlaylistView）
-
-- **布局**：歌单信息区（封面 + 名称 + 创建者 + 歌曲数 + 简介）+ 操作按钮区 + 歌曲列表
-- **操作按钮**：播放全部 / 收藏（或取消收藏，非自己歌单时显示，文案随状态切换）/ 评论 / 分享
-- **歌曲列表**：TrackList 带表头（#/歌名歌手/专辑/时长），自己歌单可移除歌曲，支持「加载更多」
-- **评论**：复用 CommentModal（type=playlist），展示歌单评论
-
-### 5. 每日推荐（DailyRecommendView）
-
-- **布局**：标题区 + 双 Tab（推荐歌曲 / 推荐歌单）
-- **推荐歌曲**：TrackList 展示，支持「播放全部」
-- **推荐歌单**：PlaylistCard 网格，简介回退用创建者昵称
-
-### 6. 排行榜（ToplistView）
-
-- **布局**：分类 Tab（全部/官方榜/精选榜/全球榜）+ 榜单卡片网格
-- **卡片**：封面 + 榜单名 + 前三首歌曲预览（异步加载并缓存）+ 播放按钮
-
-### 7. 个人中心（ProfileView）
-
-- **布局**：左侧 240px 侧边栏（头像 + 昵称 + 菜单）+ 右侧主内容区
-- **菜单**：喜欢的歌曲 / 我的歌单 / 播放历史 / 个人设置
-- **我的歌单**：按创建者分为「创建的」「收藏的」两组，PlaylistCard 展示
-- **播放历史**：本地 / 最近一周 / 所有时间 三种模式切换
-- **个人设置**：头像 URL + 昵称编辑，保存到服务端
+个人设置按外观、播放、快捷键、预加载分组，没有修改昵称和头像的表单。
+个人中心展示账号已有收藏歌单，不提供新的歌单收藏操作。
+歌手页已实现，独立专辑详情页尚未实现。
 
 ## 共享组件
 
-| 组件 | 说明 |
-|------|------|
-| `Navbar` | 顶部固定毛玻璃导航栏，含导航链接、搜索、主题切换、用户菜单 |
-| `PlayerBar` | 底部固定播放栏，含曲目信息、播放控制、进度条、音量、播放列表、更多菜单；沉浸式透明 |
-| `MusicCard` | 音乐/歌单卡片，悬停显示播放与添加到歌单按钮 |
-| `PlaylistCard` | 歌单卡片，封面 + 名称 + 简介 + 歌曲数 |
-| `TrackList` | 歌曲列表，带表头行，支持移除、播放时间/次数显示 |
-| `ProgressBar` | 播放进度条，可拖拽 |
-| `CategoryFilter` | 分类筛选标签栏 |
-| `SearchResultsOverlay` | 全局搜索结果覆盖层，多类型 Tab |
-| `CommentModal` | 评论弹窗，泛化支持歌曲/歌单评论 |
-| `TrackDetailModal` | 歌曲详情弹窗 |
-| `PlaylistPanel` | 播放列表面板 |
-| `AddToPlaylistModal` | 添加到歌单弹窗 |
-| `ConfirmDialog` | 全局确认弹窗 |
-| `Toast` | 全局提示通知 |
+| 分类       | 组件与用途                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------ |
+| 全局框架   | `NavBar` 导航与搜索、`PlayerBar` 播放控制、`BackToTop` 返回顶部                            |
+| 音乐内容   | `MusicCard` 卡片、`PlaylistCard` 歌单条目、`TrackList` 歌曲表格、`CategoryFilter` 分类标签 |
+| 播放交互   | `ProgressBar` 进度拖动、`PlaylistPanel` 当前播放队列                                       |
+| 搜索       | `SearchResultsOverlay` 单曲、歌单、歌手、专辑结果                                          |
+| 详情与操作 | `TrackDetailModal` 歌曲信息、`CommentModal` 评论、`AddToPlaylistModal` 添加歌曲            |
+| 反馈       | `ConfirmDialog` 确认操作、`ToastNotification` 轻量通知                                     |
 
-## Directory Structure
+组件源码见 [src/components/](../src/components/)。
+评论是只读展示；添加到歌单弹窗应区分本地歌单与网易云歌单的操作结果。
 
-```
-src/
-├── api/                    # 按领域拆分的 API 函数（auth/user/playlist/track/others）
-├── assets/styles/          # variables.scss / global.scss / transitions.scss
-├── components/             # 共享 UI 组件（见上表）
-├── composables/            # useTheme（主题）、useLyricScroll（歌词滚动）
-├── constants.js            # 集中管理 localStorage 键名、占位图、轮询间隔等常量
-├── router/index.js         # 7 条路由 + scrollBehavior + 权限守卫
-├── stores/                 # user / player / music / ui 四个 Pinia store
-├── utils/                  # request.js（Axios 实例）、common.js（工具函数）
-└── views/                  # 7 个页面级视图
-```
+## 状态样式与反馈
 
-## 响应式断点
+- **加载中**：使用页面已有的骨架屏或加载图标，避免内容区域突然收缩。
+- **空内容**：说明没有数据，与请求失败区分，不把失败文案写成“暂无内容”。
+- **失败**：显示对应提示；已有重试入口的页面保留重试操作。
+- **不可播放**：由 `playable` 和 `reason` 决定歌曲行的交互与说明，不能只根据外观猜测权限。
+- **试听**：播放上游返回的片段时提示“当前为试听片段”，不宣称完整播放。
+- **操作反馈**：Toast 默认 2 秒；退出登录等操作通过确认弹窗明确确认与取消。
 
-375px（手机）/ 768px（平板）/ 1024px（小屏桌面）/ 1200-1440px（大屏）。导航栏在窄屏隐藏 logo 文字、缩短搜索框；播放栏在窄屏精简控件；歌单/卡片网格列数随断点递减。
+ESC 关闭能力由 [useEscClose.js](../src/composables/useEscClose.js) 复用。
+交互按钮使用现有的焦点、选中和禁用状态；新组件补充可理解的按钮名称与图片替代文本。
+
+## 界面检查清单
+
+- 检查浅色、深色、跟随系统及四种主题色是否覆盖新增组件。
+- 登录页、普通页面和播放页之间切换，检查固定栏留白和返回过渡。
+- 检查加载、空态、接口失败、长标题、无封面和长歌词。
+- 检查键盘焦点、ESC 和快捷键是否干扰输入框。
+- 检查歌词偏好在重新进入播放页后生效的提示是否清楚。
+- 新布局以桌面实际显示结果为依据，不把未验证的移动端效果写为已支持。
+
+[返回文档导航](./README.md)
