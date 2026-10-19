@@ -1,12 +1,13 @@
 ﻿<script setup>
   // 参考 YesPlayMusic Cover.vue + CoverRow.vue
-  import { ref, computed } from 'vue'
+  import { ref, computed, onBeforeUnmount } from 'vue'
   import { Play, Plus } from '@lucide/vue'
   import { useRouter } from 'vue-router'
   import { usePlayerStore } from '@/stores/player'
   import { useUserStore } from '@/stores/user'
   import { useUiStore } from '@/stores/ui'
   import { resizeImage } from '@/utils/common'
+  import { getPlaylistDetail } from '@/api/playlist'
   import AddToPlaylistModal from '@/components/AddToPlaylistModal.vue'
 
   const props = defineProps({
@@ -21,6 +22,11 @@
   const uiStore = useUiStore()
 
   const showAddToPlaylistModal = ref(false)
+  const loadingPlaylist = ref(false)
+  let disposed = false
+  onBeforeUnmount(() => {
+    disposed = true
+  })
 
   // 判断是否为歌单类型（歌单对象无 ar 字段，封面字段为 coverImgUrl 或 picUrl）
   const isPlaylist = computed(() => {
@@ -66,8 +72,27 @@
     }
   }
 
-  function playTrack() {
-    playerStore.play(props.item)
+  async function playTrack() {
+    if (!isPlaylist.value) {
+      await playerStore.play(props.item)
+      return
+    }
+    if (loadingPlaylist.value) return
+    loadingPlaylist.value = true
+    try {
+      const data = await getPlaylistDetail(props.item.id)
+      if (disposed) return
+      const tracks = data.playlist?.tracks || []
+      if (!tracks.length) {
+        uiStore.showToast('歌单暂无可播放的歌曲', 'warning')
+        return
+      }
+      await playerStore.play(tracks[0], tracks)
+    } catch {
+      if (!disposed) uiStore.showToast('歌单加载失败，请稍后重试', 'error')
+    } finally {
+      loadingPlaylist.value = false
+    }
   }
 
   function addToPlaylist() {
@@ -95,7 +120,13 @@
         {{ playlistTrackCount }} 首
       </div>
       <div class="overlay">
-        <button class="play-btn" @click.stop="playTrack">
+        <button
+          class="play-btn"
+          :disabled="loadingPlaylist"
+          :aria-busy="loadingPlaylist"
+          :aria-label="loadingPlaylist ? '加载歌单中' : '播放'"
+          @click.stop="playTrack"
+        >
           <Play :size="24" color="#ffffff" fill="#ffffff" />
         </button>
         <button v-if="!isPlaylist" class="add-btn" @click.stop="addToPlaylist">
