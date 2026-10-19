@@ -6,10 +6,10 @@
   import { resizeImage, formatDuration } from '@/utils/common'
   import {
     IMAGE_SIZE_LARGE,
-    LYRIC_POLL_INTERVAL,
     STORAGE_KEYS,
     DEFAULT_LYRIC_FONT_SIZE
   } from '@/constants'
+  import { getTrackDetail } from '@/api/track'
 
   // 歌词翻译开关（参考上游 YesPlayMusic showLyricsTranslation）
   const showLyricsTranslation =
@@ -30,12 +30,20 @@
     DEFAULT_LYRIC_FONT_SIZE
   const lyricStyle = { '--lyric-font-size': `${lyricFontSize}px` }
 
-  const track = ref(null)
-  const lyrics = ref([])
+  const detailTrack = ref(null)
+  const track = computed(() =>
+    Number(playerStore.currentTrack?.id) === Number(route.params.id)
+      ? playerStore.currentTrack
+      : detailTrack.value
+  )
+  const lyrics = computed(() =>
+    musicStore.currentLyricsTrackId === Number(route.params.id)
+      ? musicStore.currentLyrics
+      : []
+  )
   const lyricListRef = ref(null)
   const highlightIndex = ref(-1)
-  // 参考 YesPlayMusic setLyricsInterval：使用 setInterval 轮询 playerStore.progress 更新歌词高亮
-  let lyricsInterval = null
+  let loadGeneration = 0
 
   const artistName = computed(
     () => track.value?.ar?.map(a => a.name).join(', ') || '未知歌手'
@@ -46,23 +54,11 @@
   )
 
   // 参考 YesPlayMusic setLyricsInterval：用真实播放进度计算高亮行
-  function setLyricsInterval() {
-    clearLyricsInterval()
-    lyricsInterval = setInterval(() => {
-      const currentTime = playerStore.progress / 1000 // 转换为秒
-      updateHighlight(currentTime)
-    }, LYRIC_POLL_INTERVAL)
-  }
-
-  function clearLyricsInterval() {
-    if (lyricsInterval) {
-      clearInterval(lyricsInterval)
-      lyricsInterval = null
-    }
-  }
-
   function updateHighlight(currentTime) {
-    if (lyrics.value.length === 0) {
+    if (
+      lyrics.value.length === 0 ||
+      Number(playerStore.currentTrack?.id) !== Number(route.params.id)
+    ) {
       highlightIndex.value = -1
       return
     }
@@ -82,6 +78,7 @@
 
   async function scrollToLine(index) {
     await nextTick()
+    if (index !== highlightIndex.value) return
     const el = lyricListRef.value?.children?.[index]
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -89,29 +86,39 @@
   }
 
   async function loadTrack() {
+    const requestId = ++loadGeneration
     const id = Number(route.params.id)
-    track.value = musicStore.getTrackById(id)
-    // 从 playerStore 获取当前轨道（真实 API 返回的完整 track 信息）
-    if (!track.value && playerStore.currentTrack?.id === id) {
-      track.value = playerStore.currentTrack
+    highlightIndex.value = -1
+    detailTrack.value = musicStore.getTrackById(id)
+    // 页面只加载展示信息；播放由播放器按钮/列表的显式操作发起。
+    const lyricsRequest = musicStore.fetchLyrics(id)
+    if (!track.value) {
+      try {
+        const data = await getTrackDetail(String(id))
+        if (requestId === loadGeneration)
+          detailTrack.value = data.songs?.[0] || null
+      } catch {
+        // 详情不可用不影响共享播放器。
+      }
     }
-    if (
-      track.value &&
-      (!playerStore.currentTrack ||
-        playerStore.currentTrack.id !== track.value.id)
-    ) {
-      await playerStore.play(track.value, musicStore.recommendList)
-    }
-    lyrics.value = await musicStore.fetchLyrics(id)
-    setLyricsInterval()
+    await lyricsRequest
   }
 
-  function seekToLyric(time) {
-    playerStore.seek(time * 1000) // 转换为毫秒
+  async function seekToLyric(time) {
+    const selectedTrack = track.value
+    if (!selectedTrack) return
+    if (Number(playerStore.currentTrack?.id) !== Number(selectedTrack.id)) {
+      await playerStore.play(selectedTrack)
+    }
+    if (
+      Number(route.params.id) === Number(selectedTrack.id) &&
+      Number(playerStore.currentTrack?.id) === Number(selectedTrack.id)
+    ) {
+      playerStore.seek(time * 1000)
+    }
   }
 
   onMounted(() => {
-    loadTrack()
     // ESC 退出播放详情页（弹窗优先由 useEscClose 处理，栈空时才到这里）
     window.addEventListener('keydown', onKeydown)
   })
@@ -120,7 +127,16 @@
     () => route.params.id,
     () => {
       loadTrack()
-    }
+    },
+    { immediate: true }
+  )
+
+  watch(
+    [() => playerStore.progress, lyrics],
+    () => {
+      updateHighlight(playerStore.progress / 1000)
+    },
+    { immediate: true }
   )
 
   // 当播放列表切换上一首/下一首时，更新播放页内容
@@ -134,7 +150,8 @@
   )
 
   onUnmounted(() => {
-    clearLyricsInterval()
+    loadGeneration++
+    musicStore.clearLyrics()
     window.removeEventListener('keydown', onKeydown)
   })
 

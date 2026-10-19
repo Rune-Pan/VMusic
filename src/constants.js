@@ -154,8 +154,6 @@ export const TOPLIST_PREVIEW_COUNT = 3
 
 // 定时器间隔（毫秒）
 export const PROGRESS_POLL_INTERVAL = 250
-export const LYRIC_POLL_INTERVAL = 100
-export const PERSIST_DEBOUNCE_MS = 300
 export const DEFAULT_TOAST_DURATION = 2000
 export const QR_CHECK_INTERVAL = 1000
 

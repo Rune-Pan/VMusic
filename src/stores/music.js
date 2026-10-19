@@ -41,6 +41,8 @@ export const useMusicStore = defineStore('music', () => {
   const searchLoading = ref(false)
   const userPlaylists = ref([])
   const currentLyrics = ref([])
+  const currentLyricsTrackId = ref(null)
+  let lyricsGeneration = 0
   const loading = ref(false)
   // 缓存各分类的歌曲数据，key 为分类名
   const categoryCache = ref({})
@@ -240,6 +242,12 @@ export const useMusicStore = defineStore('music', () => {
   }
 
   async function fetchLyrics(trackId) {
+    trackId = Number(trackId)
+    const requestId = ++lyricsGeneration
+    currentLyricsTrackId.value = trackId
+    currentLyrics.value = []
+    const isCurrent = () =>
+      requestId === lyricsGeneration && currentLyricsTrackId.value === trackId
     // 解析并匹配翻译歌词，返回 lyric 数组
     const parseAndMatch = data => {
       const lrcText = data.lrc?.lyric || ''
@@ -262,23 +270,30 @@ export const useMusicStore = defineStore('music', () => {
       const data = await getLyric(trackId)
       const lyric = parseAndMatch(data)
       cacheLyric(trackId, lyric).catch(() => {})
-      currentLyrics.value = lyric
+      if (isCurrent()) currentLyrics.value = lyric
       return lyric
     }
 
     try {
-      const cached = await getLyricFromCache(trackId)
+      const cached = await getLyricFromCache(trackId).catch(() => null)
+      if (!isCurrent()) return []
       if (cached) {
         currentLyrics.value = cached.lyric
         if (cached.stale) fetchLatest().catch(() => {})
-        return currentLyrics.value
+        return cached.lyric
       }
-      await fetchLatest()
+      return await fetchLatest()
     } catch (e) {
       console.error('Failed to fetch lyrics:', e)
-      currentLyrics.value = []
+      if (isCurrent()) currentLyrics.value = []
     }
-    return currentLyrics.value
+    return []
+  }
+
+  function clearLyrics() {
+    lyricsGeneration++
+    currentLyricsTrackId.value = null
+    currentLyrics.value = []
   }
 
   // 参考 YesPlayMusic fetchPlayHistory action：从服务端拉取播放历史
@@ -526,6 +541,7 @@ export const useMusicStore = defineStore('music', () => {
     searchLoading,
     userPlaylists,
     currentLyrics,
+    currentLyricsTrackId,
     loading,
     serverPlayHistory,
     historyLoading,
@@ -542,6 +558,7 @@ export const useMusicStore = defineStore('music', () => {
     clearSearch,
     filterByCategory,
     fetchLyrics,
+    clearLyrics,
     fetchPlayHistory,
     fetchDailyRecommend,
     fetchToplists,

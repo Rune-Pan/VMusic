@@ -217,10 +217,13 @@
             {{ playerStore.currentTrack?.name || '未知歌曲' }}
           </div>
           <div class="artist text-ellipsis">
-            {{
-              playerStore.currentTrack?.ar?.map(a => a.name).join(', ') ||
-              '未知歌手'
-            }}
+            <span v-if="playerStore.isLoading" role="status">正在加载…</span>
+            <span v-else>
+              {{
+                playerStore.currentTrack?.ar?.map(a => a.name).join(', ') ||
+                '未知歌手'
+              }}
+            </span>
           </div>
         </div>
         <button
@@ -255,11 +258,11 @@
           </button>
           <button
             class="ctrl-btn play-btn"
-            aria-label="播放/暂停"
+            :aria-label="playerStore.wantsPlay ? '暂停' : '播放'"
             @click="playerStore.togglePlay"
           >
             <Play
-              v-if="!playerStore.playing"
+              v-if="!playerStore.playing && !playerStore.wantsPlay"
               :size="22"
               color="#ffffff"
               fill="#ffffff"

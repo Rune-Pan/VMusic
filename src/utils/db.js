@@ -81,7 +81,7 @@ export async function getLyricFromCache(id) {
 export async function cacheTrackDetail(song, privileges) {
   if (!song?.id) return
   await db.trackDetail.put({
-    id: song.id,
+    id: Number(song.id),
     song,
     privileges,
     updateTime: Date.now(),
@@ -93,7 +93,7 @@ export async function cacheTrackDetail(song, privileges) {
 // 批量查询，对标上游 getTrackDetailFromCache(ids)
 // ids 为数组，返回 { songs, privileges, stale } 或 null（任一缺失即视为未命中）
 export async function getTrackDetailFromCache(ids) {
-  const records = await db.trackDetail.bulkGet(ids)
+  const records = await db.trackDetail.bulkGet(ids.map(Number))
   if (records.some(r => !r)) return null
   // 更新 lastAccess
   await Promise.all(
@@ -136,7 +136,7 @@ export async function getPlaylistDetailFromCache(id) {
 
 export async function cacheTrackSource(id, url, br) {
   await db.trackSource.put({
-    id,
+    id: Number(id),
     url,
     br,
     updateTime: Date.now(),
@@ -146,6 +146,7 @@ export async function cacheTrackSource(id, url, br) {
 }
 
 export async function getTrackSourceFromCache(id) {
+  id = Number(id)
   const record = await db.trackSource.get(id)
   if (!record) return null
   await db.trackSource.update(id, { lastAccess: Date.now() })
@@ -158,7 +159,7 @@ export async function getTrackSourceFromCache(id) {
 
 // 清除单首歌的 url 缓存（播放失败回退用）
 export async function clearTrackSource(id) {
-  await db.trackSource.delete(id)
+  await db.trackSource.delete(Number(id))
 }
 
 // 清空全部 url 缓存（切换音质用，对齐上游 clearCache）

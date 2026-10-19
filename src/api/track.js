@@ -16,13 +16,17 @@ function getMusicQuality() {
   return saved || DEFAULT_MUSIC_QUALITY
 }
 
-export function getMP3(id, br = getMusicQuality()) {
+export function getMP3(
+  id,
+  br = getMusicQuality(),
+  { forceRefresh = false } = {}
+) {
   // SWR：命中未过期直接返回；过期返回旧值同时后台刷新；未命中等网络
   const fetchLatest = async () => {
     const data = await request({
       url: '/song/url',
       method: 'get',
-      params: { id, br }
+      params: { id, br, ...(forceRefresh ? { timestamp: Date.now() } : {}) }
     })
     const item = data?.data?.[0]
     const url = item?.url
@@ -33,17 +37,20 @@ export function getMP3(id, br = getMusicQuality()) {
     return data
   }
 
-  return getTrackSourceFromCache(id).then(async cached => {
-    if (cached) {
-      // 过期才后台刷新（url 有时效，过期需重拉）
-      if (cached.stale) fetchLatest().catch(() => {})
-      // freeTrialInfo 置 null 表示非试听（试听状态不缓存，避免误判）
-      return {
-        data: [{ id, url: cached.url, br: cached.br, freeTrialInfo: null }]
+  if (forceRefresh) return fetchLatest()
+  return getTrackSourceFromCache(id)
+    .catch(() => null)
+    .then(async cached => {
+      if (cached && Number(cached.br) === Number(br)) {
+        // 过期才后台刷新（url 有时效，过期需重拉）
+        if (cached.stale) fetchLatest().catch(() => {})
+        // freeTrialInfo 置 null 表示非试听（试听状态不缓存，避免误判）
+        return {
+          data: [{ id, url: cached.url, br: cached.br, freeTrialInfo: null }]
+        }
       }
-    }
-    return fetchLatest()
-  })
+      return fetchLatest()
+    })
 }
 
 export function getTrackDetail(ids) {
@@ -66,14 +73,16 @@ export function getTrackDetail(ids) {
 
   const idArr = String(ids).split(',')
 
-  return getTrackDetailFromCache(idArr).then(async cached => {
-    if (cached) {
-      // 过期才后台刷新
-      if (cached.stale) fetchLatest().catch(() => {})
-      return { songs: cached.songs, privileges: cached.privileges }
-    }
-    return fetchLatest()
-  })
+  return getTrackDetailFromCache(idArr)
+    .catch(() => null)
+    .then(async cached => {
+      if (cached) {
+        // 过期才后台刷新
+        if (cached.stale) fetchLatest().catch(() => {})
+        return { songs: cached.songs, privileges: cached.privileges }
+      }
+      return fetchLatest()
+    })
 }
 
 export function getLyric(id) {

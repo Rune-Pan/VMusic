@@ -16,6 +16,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Check the supported Node.js version before installing dependencies
+node -e "const [a,b]=process.versions.node.split('.').map(Number); process.exit((a===22 && b>=18)||(a===24 && b>=12)||a>24 ? 0 : 1)"
+if %errorlevel% neq 0 (
+    echo [Error] Unsupported Node.js version. Required: ^22.18.0 or ^>=24.12.0.
+    node --version
+    pause
+    exit /b 1
+)
+
 :: Install frontend dependencies
 echo [1/3] Installing frontend dependencies...
 call npm install
