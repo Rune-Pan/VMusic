@@ -260,6 +260,26 @@ body .player-bar.glass-surface {
   height: var(--player-height);
   padding: 12px 24px;
 }
+body .desktop-shell > .player-bar.glass-surface {
+  left: calc(var(--main-side-offset) + var(--content-inline-padding));
+  right: calc(var(--scrollbar-size) + var(--content-inline-padding));
+  // Match the root's minimum width when its scrollbar gutter exceeds the viewport.
+  width: calc(
+    max(100%, 880px) - var(--main-side-offset) - var(--scrollbar-size) -
+      var(--content-inline-padding) * 2
+  );
+  max-width: calc(var(--content-max-width) - var(--content-inline-padding) * 2);
+  margin-inline: auto;
+}
+body .desktop-shell > .player-bar .left-section {
+  flex-shrink: 1;
+}
+body .desktop-shell > .player-bar .main-section {
+  min-width: min-content;
+}
+body .desktop-shell > .player-bar .right-section {
+  min-width: max-content;
+}
 body .player-bar .controls {
   gap: 20px;
 }
@@ -484,7 +504,11 @@ body .login-page .submit-btn {
 }
 
 body .player-bar.glass-surface.immersive {
-  border-color: var(--glass-border);
+  border-color: transparent;
+  box-shadow: none;
+}
+body .player-bar.glass-surface.immersive > .glass-optics {
+  display: none;
 }
 body .app-container .track-item:focus-within .cover-play-icon {
   opacity: 1;
