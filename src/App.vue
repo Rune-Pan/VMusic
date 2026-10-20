@@ -16,12 +16,14 @@
   import { runPreload } from '@/composables/usePreload'
   import { cancelPageScroll, restorePageScroll } from '@/utils/pageScroll'
   import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
+  import { useSidebarCollapse } from '@/composables/useSidebarCollapse'
 
   const userStore = useUserStore()
   const playerStore = usePlayerStore()
   const musicStore = useMusicStore()
   const route = useRoute()
   const { isAutoHideActive } = useSidebarAutoHide()
+  const { collapsed } = useSidebarCollapse()
   // 挂载快捷键监听（内部仅安装一次）
   useShortcuts()
 
@@ -51,7 +53,8 @@
     :class="{
       'desktop-shell': showNavbar,
       'player-stage': isPlayerPage,
-      'sidebar-auto-hide': showNavbar && isAutoHideActive
+      'sidebar-auto-hide': showNavbar && isAutoHideActive,
+      'sidebar-collapsed': showNavbar && collapsed
     }"
   >
     <AmbientBackground
@@ -93,7 +96,8 @@
 
 <style scoped>
   .app-container {
-    --main-side-offset: calc(var(--sidebar-width) + var(--shell-gap) * 2);
+    --sidebar-effective-width: var(--sidebar-width);
+    --main-side-offset: calc(var(--sidebar-effective-width) + var(--shell-gap) * 2);
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -123,6 +127,10 @@
 
   .main-content.has-player {
     padding-bottom: calc(var(--player-height) + var(--shell-gap) * 2);
+  }
+
+  .sidebar-collapsed {
+    --sidebar-effective-width: var(--sidebar-collapsed-width);
   }
 
   .sidebar-auto-hide {

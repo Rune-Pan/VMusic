@@ -20,6 +20,7 @@ vi.mock('@/composables/usePreload', () => ({
   usePreload: () => state.preload
 }))
 vi.mock('@/composables/useSidebarAutoHide', () => ({ useSidebarAutoHide: () => state.sidebar }))
+vi.mock('@/composables/useSidebarCollapse', () => ({ useSidebarCollapse: () => state.collapse }))
 
 let wrapper, shell, container
 beforeEach(() => {
@@ -35,6 +36,7 @@ beforeEach(() => {
   state.music = { serverPlayHistory: {}, fetchPlayHistory: vi.fn() }
   state.player = { playHistory: [], play: vi.fn(), togglePlay: vi.fn(), prev: vi.fn(), next: vi.fn() }
   state.ui = { showToast: vi.fn(), showConfirm: vi.fn() }
+  state.collapse = { collapsed: ref(false), setCollapsed: vi.fn() }
   state.theme = { theme: ref('dark'), themeColor: ref('blue'), setTheme: vi.fn(), setThemeColor: vi.fn() }
   state.preload = { config: ref({ enabled: false, items: { dailyRecommend: true } }), setEnabled: vi.fn(), setItem: vi.fn() }
   state.sidebar = { enabled: ref(false), triggerWidth: ref(16), hideDelay: ref(350), setEnabled: vi.fn(), setTriggerWidth: vi.fn(), setHideDelay: vi.fn() }
@@ -176,4 +178,16 @@ it('VIP开关按身份显示，预加载子项只随总开关展示', async () =
   state.preload.config.value.enabled = true
   await flushPromises()
   expect(wrapper.find('.preload-items').isVisible()).toBe(true)
+})
+
+
+it('折叠开关在自动隐藏开启后仍可用，且仅更新折叠偏好', async () => {
+  await open()
+  expect(wrapper.get('label[for="sidebar-collapsed"]').isVisible()).toBe(true)
+  state.sidebar.enabled.value = true
+  await flushPromises()
+  await wrapper.get('#sidebar-collapsed').setValue(true)
+  expect(state.collapse.setCollapsed).toHaveBeenCalledExactlyOnceWith(true)
+  expect(state.sidebar.setEnabled).not.toHaveBeenCalled()
+  expect(wrapper.get('#sidebar-collapsed').attributes('disabled')).toBeUndefined()
 })

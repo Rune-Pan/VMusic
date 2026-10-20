@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   THEME: 'vmusic-theme',
   THEME_COLOR: 'vmusic-theme-color',
   SIDEBAR_AUTO_HIDE: 'vmusic-sidebar-auto-hide',
+  SIDEBAR_COLLAPSED: 'vmusic-sidebar-collapsed',
   MUSIC_QUALITY: 'vmusic-music-quality',
   LYRIC_FONT_SIZE: 'vmusic-lyric-font-size',
   SHOW_LYRICS_TRANSLATION: 'vmusic-show-lyrics-translation',

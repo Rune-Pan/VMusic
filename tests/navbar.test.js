@@ -4,6 +4,7 @@ import { createPinia, setActivePinia, disposePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { ref } from 'vue'
 import NavBar from '@/components/NavBar.vue'
+import { useSidebarCollapse } from '@/composables/useSidebarCollapse'
 
 vi.mock('@/composables/useTheme', () => ({
   useTheme: () => ({ theme: ref('light'), toggleTheme: vi.fn() })
@@ -11,6 +12,7 @@ vi.mock('@/composables/useTheme', () => ({
 
 let pinia, wrapper, router
 beforeEach(() => {
+  useSidebarCollapse().setCollapsed(false)
   localStorage.clear()
   pinia = createPinia()
   setActivePinia(pinia)
@@ -110,4 +112,20 @@ it.each([
     shell.remove()
     vi.unstubAllGlobals()
   }
+})
+
+
+it('折叠状态保留完整入口名称、当前页语义，且仅设置控制宽窄', async () => {
+  await open('/profile')
+  useSidebarCollapse().setCollapsed(true)
+  await flushPromises()
+  expect(wrapper.classes()).toContain('collapsed')
+  expect(wrapper.findAll('.nav-link').map(link => link.attributes('aria-label')))
+    .toEqual(['首页', '每日推荐', '排行榜', '个人中心'])
+  expect(wrapper.get('[aria-current="page"]').attributes('aria-label')).toBe('个人中心')
+  expect(wrapper.findAll('.sidebar-navigation button')).toHaveLength(1)
+  await wrapper.get('.nav-link[href="/daily-recommend"]').trigger('click')
+  await flushPromises()
+  expect(router.currentRoute.value.name).toBe('daily-recommend')
+  expect(wrapper.classes()).toContain('collapsed')
 })

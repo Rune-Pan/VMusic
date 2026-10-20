@@ -42,6 +42,7 @@
   import { usePreload, PRELOAD_ITEMS } from '@/composables/usePreload'
   import { getPageScrollContainer, scrollPageTo } from '@/utils/pageScroll'
   import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
+  import { useSidebarCollapse } from '@/composables/useSidebarCollapse'
 
   const userStore = useUserStore()
   const musicStore = useMusicStore()
@@ -49,6 +50,7 @@
   const playerStore = usePlayerStore()
   const router = useRouter()
   const { theme, setTheme, themeColor, setThemeColor } = useTheme()
+  const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } = useSidebarCollapse()
   const {
     enabled: sidebarAutoHide,
     triggerWidth: sidebarTriggerWidth,
@@ -702,6 +704,21 @@
                     @input="setSidebarHideDelay(Number($event.target.value))"
                   />
                 </div>
+              </div>
+              <div class="form-group">
+                <div class="setting-copy">
+                  <label class="form-label" for="sidebar-collapsed">折叠导航</label>
+                  <p class="sidebar-settings-help">收起菜单文字，仅保留图标；不影响自动隐藏。</p>
+                </div>
+                <label class="toggle-switch">
+                  <input
+                    id="sidebar-collapsed"
+                    type="checkbox"
+                    :checked="sidebarCollapsed"
+                    @change="setSidebarCollapsed($event.target.checked)"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
               </div>
               <div v-if="userStore.userInfo.vipType !== 0" class="form-group">
                 <div class="toggle-row">

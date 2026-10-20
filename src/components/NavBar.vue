@@ -20,6 +20,7 @@
   import { useUiStore } from '@/stores/ui'
   import { useTheme } from '@/composables/useTheme'
   import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
+  import { useSidebarCollapse } from '@/composables/useSidebarCollapse'
   import { cancelPageScroll, getPageScrollContainer } from '@/utils/pageScroll'
 
   const router = useRouter()
@@ -29,6 +30,7 @@
   const uiStore = useUiStore()
   const { theme, toggleTheme } = useTheme()
   const { isAutoHideActive, triggerWidth, hideDelay } = useSidebarAutoHide()
+  const { collapsed } = useSidebarCollapse()
   const sidebarRegion = ref(null)
   const expanded = ref(false)
   const keyboardWithin = ref(false)
@@ -193,7 +195,8 @@
     :class="{
       'auto-hide': isAutoHideActive,
       'sidebar-open': expanded,
-      'sidebar-keyboard': keyboardWithin
+      'sidebar-keyboard': keyboardWithin,
+      collapsed
     }"
     :style="{ '--sidebar-trigger-width': `${triggerWidth}px` }"
     @keydown="onNavigationKeydown"
@@ -228,6 +231,7 @@
             class="nav-link"
             :class="{ active: route.name === item.name }"
             :aria-current="route.name === item.name ? 'page' : undefined"
+            :aria-label="item.label"
           >
             <component :is="item.icon" :size="19" />
             <span>{{ item.label }}</span>
@@ -300,7 +304,7 @@
     position: fixed;
     top: 50%;
     left: 0;
-    width: calc(var(--sidebar-width) + var(--shell-gap));
+    width: calc(var(--sidebar-effective-width, var(--sidebar-width)) + var(--shell-gap));
     padding-left: var(--shell-gap);
     z-index: var(--z-navbar);
     transform: translateY(-50%);
@@ -325,7 +329,7 @@
     z-index: var(--z-navbar);
   }
   .sidebar-navigation {
-    width: var(--sidebar-width);
+    width: var(--sidebar-effective-width, var(--sidebar-width));
     display: flex;
     flex-direction: column;
     padding: 16px;
@@ -389,11 +393,54 @@
     background: var(--color-primary-bg);
     box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
+  .collapsed .sidebar-navigation {
+    padding: 12px;
+  }
+  .collapsed :is(.brand-home, .nav-link) {
+    position: relative;
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+  .collapsed .brand-home {
+    height: 44px;
+  }
+  .collapsed :is(.brand-wordmark, .nav-link > span) {
+    display: none;
+  }
+  .collapsed .nav-link:hover {
+    transform: none;
+  }
+  .collapsed :is(.brand-home, .nav-link)::after {
+    content: attr(aria-label);
+    position: absolute;
+    left: calc(100% + 24px);
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: var(--z-tooltip, 1200);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--glass-solid);
+    color: var(--color-text);
+    box-shadow: var(--shadow-md);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .collapsed :is(.brand-home, .nav-link):is(:hover, :focus-visible)::after {
+    opacity: 1;
+    visibility: visible;
+  }
   .desktop-toolbar {
     position: fixed;
     top: var(--shell-gap);
     left: var(--main-side-offset);
     right: var(--scrollbar-size);
+    width: calc(max(100%, 880px) - var(--main-side-offset) - var(--scrollbar-size));
     max-width: var(--content-max-width);
     margin-inline: auto;
     padding-inline: var(--content-inline-padding);
