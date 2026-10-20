@@ -2,7 +2,7 @@
   // 参考 YesPlayMusic src/views/playlist.vue
   import { ref, computed, watch } from 'vue'
   import { useRoute } from 'vue-router'
-  import { Play, MessageSquareText, Share2 } from '@lucide/vue'
+  import { Play, MessageSquareText, Share2 } from '@/components/icons'
   import { usePlayerStore } from '@/stores/player'
   import { useMusicStore } from '@/stores/music'
   import { useUserStore } from '@/stores/user'

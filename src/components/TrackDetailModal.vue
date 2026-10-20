@@ -1,6 +1,7 @@
 <script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
   import { ref, computed, watch } from 'vue'
-  import { X, Loader2 } from '@lucide/vue'
+  import { X, Loader2 } from '@/components/icons'
   import { userPlayHistory } from '@/api/user'
   import { useUserStore } from '@/stores/user'
   import { resizeImage } from '@/utils/common'
@@ -83,7 +84,12 @@
 <template>
   <transition name="fade">
     <div v-if="visible" class="track-detail-overlay" @click="close">
-      <div class="track-detail-modal" @click.stop>
+      <GlassSurface
+        class="track-detail-modal"
+        modal
+        label="歌曲详情"
+        @click.stop
+      >
         <div class="track-detail-header">
           <div class="track-detail-title">歌曲详情</div>
           <button class="close-btn" aria-label="关闭" @click="close">
@@ -118,7 +124,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   </transition>
 </template>

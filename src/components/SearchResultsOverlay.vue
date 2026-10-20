@@ -1,7 +1,8 @@
 <script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
   import { computed, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
-  import { X, Search } from '@lucide/vue'
+  import { X, Search } from '@/components/icons'
   import { useMusicStore } from '@/stores/music'
   import { useUiStore } from '@/stores/ui'
   import { resizeImage } from '@/utils/common'
@@ -77,7 +78,7 @@
 <template>
   <transition name="fade">
     <div v-if="visible" class="overlay" @click.self="close">
-      <div class="panel">
+      <GlassSurface class="panel" modal label="搜索结果">
         <div class="panel-header">
           <div class="header-info">
             <h2 class="title">搜索结果</h2>
@@ -143,6 +144,9 @@
             v-for="item in displayList"
             :key="item.id"
             class="artist-card"
+            role="link"
+            tabindex="0"
+            @keydown.enter="goArtist(item.id)"
             @click="goArtist(item.id)"
           >
             <div class="artist-cover-wrapper">
@@ -179,6 +183,9 @@
             v-for="item in displayList"
             :key="item.id"
             class="album-card"
+            role="button"
+            tabindex="0"
+            @keydown.enter="showAlbumTip"
             @click="showAlbumTip"
           >
             <div class="album-cover-wrapper">
@@ -195,7 +202,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   </transition>
 </template>

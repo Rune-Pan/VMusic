@@ -1,31 +1,56 @@
 <script setup>
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
-  import { ArrowUp } from '@lucide/vue'
+  import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+  import { useRoute } from 'vue-router'
+  import { ArrowUp } from '@/components/icons'
   import { usePlayerStore } from '@/stores/player'
   import { useUserStore } from '@/stores/user'
+  import { getPageScrollContainer, scrollPageTo } from '@/utils/pageScroll'
 
+  const route = useRoute()
   const playerStore = usePlayerStore()
   const userStore = useUserStore()
 
   const visible = ref(false)
 
   // 滚动超过一屏才显示，避免短页面误触
-  function onScroll() {
-    visible.value = window.scrollY > window.innerHeight
+  function updateVisibility() {
+    const container = getPageScrollContainer()
+    visible.value = container
+      ? container.scrollTop > container.clientHeight
+      : window.scrollY > window.innerHeight
+  }
+  function onScroll(event) {
+    const container = getPageScrollContainer()
+    if (container) {
+      if (event.target !== container) return
+    } else if (
+      event.target !== window &&
+      event.target !== document &&
+      event.target !== document.scrollingElement
+    ) {
+      return
+    }
+    updateVisibility()
   }
   function toTop() {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
+    scrollPageTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
   }
 
+  watch(
+    () => route.fullPath,
+    () => nextTick(updateVisibility),
+    { flush: 'post' }
+  )
+
   onMounted(() => {
-    onScroll()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
+    updateVisibility()
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    window.addEventListener('resize', updateVisibility)
   })
   onUnmounted(() => {
-    window.removeEventListener('scroll', onScroll)
-    window.removeEventListener('resize', onScroll)
+    window.removeEventListener('scroll', onScroll, true)
+    window.removeEventListener('resize', updateVisibility)
   })
 
   // PlayerBar 在登录且有曲目时显示，按钮需向上避让

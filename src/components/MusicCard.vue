@@ -1,7 +1,7 @@
 ﻿<script setup>
   // 参考 YesPlayMusic Cover.vue + CoverRow.vue
   import { ref, computed, onBeforeUnmount } from 'vue'
-  import { Play, Plus } from '@lucide/vue'
+  import { Play, Plus } from '@/components/icons'
   import { useRouter } from 'vue-router'
   import { usePlayerStore } from '@/stores/player'
   import { useUserStore } from '@/stores/user'
@@ -12,6 +12,7 @@
 
   const props = defineProps({
     item: { type: Object, required: true },
+    featured: { type: Boolean, default: false },
     // 参考 YesPlayMusic Cover.type: 'playlist' 表示歌单，默认当作歌曲处理
     type: { type: String, default: 'track' }
   })
@@ -106,13 +107,21 @@
 </script>
 
 <template>
-  <div class="music-card" @click="handleClick">
+  <div
+    class="music-card"
+    :class="{ featured }"
+    role="link"
+    tabindex="0"
+    :aria-label="isPlaylist ? playlistName : trackName"
+    @click="handleClick"
+    @keydown.enter.self="handleClick"
+  >
     <div class="cover-wrapper">
       <img
         :src="coverUrl"
         :alt="item.name"
         class="cover"
-        loading="lazy"
+        :loading="featured ? 'eager' : 'lazy'"
         decoding="async"
       />
       <!-- 歌单模式：显示歌曲数 -->
@@ -146,6 +155,22 @@
           {{ trackArtist }}
         </template>
       </div>
+      <p
+        v-if="featured && (item.copywriter || item.description)"
+        class="featured-description"
+      >
+        {{ item.copywriter || item.description }}
+      </p>
+      <button
+        v-if="featured"
+        class="featured-play"
+        :disabled="loadingPlaylist"
+        :aria-busy="loadingPlaylist"
+        @click.stop="playTrack"
+      >
+        <Play :size="17" fill="currentColor" />
+        {{ loadingPlaylist ? '加载中…' : '播放歌单' }}
+      </button>
     </div>
   </div>
 
@@ -208,7 +233,8 @@
     z-index: 1;
   }
 
-  .cover-wrapper:hover .overlay {
+  .cover-wrapper:hover .overlay,
+  .music-card:focus-within .overlay {
     opacity: 1;
   }
 
@@ -263,5 +289,66 @@
   .artist {
     font-size: 12px;
     color: var(--color-text-secondary);
+  }
+
+  .featured {
+    display: grid;
+    grid-template-columns: minmax(190px, 0.8fr) 1.25fr;
+    gap: 36px;
+    align-items: center;
+    margin-bottom: 40px;
+    padding: 24px;
+    background: var(--surface-content);
+    border-radius: 28px;
+  }
+  .featured .cover-wrapper {
+    aspect-ratio: 1;
+    width: 100%;
+    max-width: 300px;
+    margin: 0;
+    box-shadow: 0 18px 32px rgb(22 34 52 / 0.18);
+  }
+  .featured .name {
+    font-size: clamp(22px, 2.2vw, 32px);
+    line-height: 1.35;
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 10px 0;
+    letter-spacing: -0.03em;
+  }
+  .featured-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    margin-top: 12px;
+    max-width: 45ch;
+    font-size: 13px;
+  }
+  .featured-play {
+    margin-top: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 22px;
+    border-radius: var(--radius-full);
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  @media (max-width: 1199px) {
+    .featured {
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 24px;
+      padding: 20px;
+    }
+    .featured .name {
+      font-size: 22px;
+    }
   }
 </style>

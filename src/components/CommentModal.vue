@@ -1,6 +1,7 @@
 <script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
   import { ref, watch, computed, onBeforeUnmount, nextTick } from 'vue'
-  import { X, ThumbsUp, Loader2 } from '@lucide/vue'
+  import { X, ThumbsUp, Loader2 } from '@/components/icons'
   import { getSongComments } from '@/api/track'
   import { getPlaylistComments } from '@/api/playlist'
   import { resizeImage, formatRelativeTime } from '@/utils/common'
@@ -133,7 +134,7 @@
 <template>
   <transition name="comment-modal">
     <div v-if="visible" class="comment-modal-overlay" @click="close">
-      <div class="comment-modal" @click.stop>
+      <GlassSurface class="comment-modal" modal label="评论" @click.stop>
         <div class="comment-modal-header">
           <div class="comment-modal-title">
             <div class="title-main">{{ titleMain }}</div>
@@ -196,7 +197,7 @@
 
           <div v-else class="comment-empty">暂无评论</div>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   </transition>
 </template>

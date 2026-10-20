@@ -1,7 +1,7 @@
 <script setup>
   import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
   import { useRoute } from 'vue-router'
-  import { Play, Share2, Loader2 } from '@lucide/vue'
+  import { Play, Share2, Loader2 } from '@/components/icons'
   import { usePlayerStore } from '@/stores/player'
   import { useUiStore } from '@/stores/ui'
   import {
@@ -10,6 +10,7 @@
     getArtistSongs
   } from '@/api/artist'
   import { resizeImage } from '@/utils/common'
+  import { getPageScrollContainer } from '@/utils/pageScroll'
   import { IMAGE_SIZE_LARGE, PLACEHOLDER_COVER_300 } from '@/constants'
   import TrackList from '@/components/TrackList.vue'
 
@@ -141,7 +142,7 @@
   }
 
   // 滚动触底自动加载哨兵（镜像 CommentModal 模式）
-  // root: null = 视口级滚动；rootMargin 由 ALBUM_LOAD_ROOT_MARGIN 控制
+  // 使用正文滚动区域；rootMargin 由 ALBUM_LOAD_ROOT_MARGIN 控制
   const songSentinel = ref(null)
   const albumSentinel = ref(null)
   let songObserver = null
@@ -166,7 +167,10 @@
           }
         }
       },
-      { rootMargin: ALBUM_LOAD_ROOT_MARGIN }
+      {
+        root: getPageScrollContainer(),
+        rootMargin: ALBUM_LOAD_ROOT_MARGIN
+      }
     )
     return observer
   }

@@ -1,4 +1,5 @@
 <script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
   import { useUiStore } from '@/stores/ui'
   import { useEscClose } from '@/composables/useEscClose'
 
@@ -24,18 +25,27 @@
       @click.self="handleCancel"
     >
       <transition name="slide-up" appear>
-        <div v-if="uiStore.confirmDialog.visible" class="dialog">
+        <GlassSurface
+          v-if="uiStore.confirmDialog.visible"
+          class="dialog"
+          modal
+          :label="uiStore.confirmDialog.title"
+        >
           <h3 class="title">{{ uiStore.confirmDialog.title }}</h3>
           <p class="message">{{ uiStore.confirmDialog.message }}</p>
           <div class="actions">
-            <button class="btn btn-cancel" @click="handleCancel">
+            <button
+              class="btn btn-cancel"
+              data-dialog-initial
+              @click="handleCancel"
+            >
               {{ uiStore.confirmDialog.cancelText }}
             </button>
             <button class="btn btn-confirm" @click="handleConfirm">
               {{ uiStore.confirmDialog.confirmText }}
             </button>
           </div>
-        </div>
+        </GlassSurface>
       </transition>
     </div>
   </transition>

@@ -1,0 +1,543 @@
+// Shared desktop composition. Component business state stays in its original owner.
+body .app-container {
+  isolation: isolate;
+}
+body .app-container .home-view,
+body .app-container .playlist-view,
+body .app-container .artist-view,
+body .app-container .profile-view {
+  min-height: 0;
+}
+body .app-container .content-wrapper,
+body .app-container .daily-recommend-view,
+body .app-container .toplist-view,
+body .app-container .profile-layout {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 24px var(--content-inline-padding) 40px;
+}
+body .app-container :is(.page-title, .dr-title, .tl-title, .section-title) {
+  letter-spacing: -0.035em;
+}
+body .app-container :is(.page-title, .dr-title, .tl-title) {
+  font-size: 34px;
+  font-weight: 720;
+}
+body .app-container :is(.page-subtitle, .dr-subtitle, .tl-subtitle) {
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+}
+body .app-container .page-header {
+  margin-bottom: 20px;
+}
+body .app-container .category-filter {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 4px 2px 14px;
+  margin-bottom: 22px;
+  gap: 8px;
+}
+body .app-container .category-filter .tag {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-color: transparent;
+  background: var(--surface-content);
+}
+body .app-container .category-filter .tag.active {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+body .app-container .music-grid {
+  row-gap: 30px;
+}
+body .app-container .music-card:not(.featured) .name {
+  font-size: 14px;
+  line-height: 1.55;
+  margin-top: 12px;
+}
+body .app-container .music-card:not(.featured) .artist {
+  margin-top: 4px;
+}
+body .app-container .music-card .cover-wrapper {
+  border-radius: 16px;
+}
+body .app-container .music-card .playlist-badge {
+  background: rgb(14 21 33 / 0.75);
+}
+body .app-container .playlist-card {
+  background: var(--surface-content);
+  border: 0;
+  padding: 18px;
+}
+body
+  .app-container
+  :is(.play-all-btn, .action-btn, .create-btn, .load-more-btn) {
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  min-height: 38px;
+}
+body .app-container :is(.dr-tabs, .tl-tabs, .tab-bar, .history-tabs) {
+  gap: 6px;
+  border: 0;
+  margin-bottom: 24px;
+}
+body .app-container :is(.dr-tab, .tl-tab, .tab-btn, .history-tab) {
+  border: 0;
+  border-radius: var(--radius-full);
+  padding: 9px 18px;
+  font-size: 13px;
+}
+body .app-container :is(.dr-tab, .tl-tab, .tab-btn, .history-tab).active {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+body .app-container :is(.dr-tab, .tl-tab, .tab-btn).active::after {
+  display: none;
+}
+body .app-container :is(.dr-playlists, .albums-grid) {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 24px;
+}
+body .app-container .tl-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+body .app-container .tl-card {
+  background: var(--surface-content);
+  border: 0;
+  padding: 22px;
+  border-radius: 24px;
+}
+body .app-container .tl-card-cover {
+  width: 100px;
+  height: 100px;
+  border-radius: 16px;
+}
+body .app-container .tl-card:focus-within .tl-card-overlay {
+  opacity: 1;
+}
+body .app-container :is(.playlist-info, .artist-info) {
+  gap: 32px;
+  align-items: center;
+  padding: 16px 0 32px;
+  margin-bottom: 24px;
+}
+body .app-container :is(.playlist-info, .artist-info) .cover {
+  width: 210px;
+  height: 210px;
+  border-radius: 24px;
+}
+body .app-container :is(.playlist-info, .artist-info) .title {
+  font-size: 32px;
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+body .app-container :is(.playlist-info, .artist-info) .buttons {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+body .app-container :is(.playlist-info, .artist-info) .description {
+  max-width: 65ch;
+}
+body .app-container .track-list {
+  background: var(--surface-content);
+  border-radius: 20px;
+  padding: 8px;
+}
+body .app-container .track-item {
+  border-radius: 12px;
+}
+body .app-container .track-header {
+  color: var(--color-text-secondary);
+}
+
+// Profile tabs share the page's horizontal hierarchy, avoiding a second navigation rail.
+body .app-container .profile-view .profile-layout {
+  display: block;
+}
+body .app-container .profile-view .sidebar {
+  position: static;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+body .app-container .profile-view .user-info {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  gap: 20px;
+  justify-content: flex-start;
+  align-items: center;
+  background: transparent;
+  padding: 0 0 12px;
+  margin: 0;
+}
+body .app-container .profile-view .avatar {
+  width: 72px;
+  height: 72px;
+  margin: 0;
+  border: 3px solid var(--glass-border);
+}
+body .app-container .profile-view .user-name {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+body .app-container .profile-view .menu {
+  flex-direction: row;
+  gap: 4px;
+  width: fit-content;
+  padding: 5px;
+  background: var(--surface-content);
+  border-radius: var(--radius-full);
+}
+body .app-container .profile-view .menu-item {
+  width: auto;
+  border-radius: var(--radius-full);
+  padding: 10px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+body .app-container .profile-view .menu-item.active {
+  background: var(--color-primary-bg);
+}
+body .app-container .profile-view .menu-item.logout {
+  align-self: center;
+}
+body .app-container .profile-view .section-title {
+  font-size: 24px;
+}
+body .app-container .profile-view .settings-form {
+  max-width: none;
+  padding: 28px;
+  background: var(--surface-content);
+  border-radius: 24px;
+}
+body .app-container .profile-view .settings-group-title {
+  margin-top: 32px;
+  color: var(--color-text);
+  font-size: 15px;
+}
+body .app-container .profile-view .settings-group-title:first-child {
+  margin-top: 0;
+}
+body .app-container .profile-view .form-group {
+  max-width: 680px;
+}
+body .app-container .profile-view .quality-segmented {
+  border-radius: var(--radius-full);
+}
+body .app-container .profile-view .quality-tab {
+  border-radius: var(--radius-full);
+}
+
+// The independent optics layer supplies each material's fill; the root must stay clear.
+body
+  .glass-surface:is(
+    .player-bar,
+    .panel,
+    .dialog,
+    .comment-modal,
+    .track-detail-modal,
+    .atp-modal,
+    .modal-card,
+    .playlist-panel,
+    .login-card
+  ) {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-glass);
+  box-shadow:
+    var(--shadow-glass),
+    inset 0 1px 0 var(--glass-highlight);
+}
+body .player-bar.glass-surface {
+  left: var(--shell-gap);
+  right: var(--shell-gap);
+  bottom: var(--shell-gap);
+  height: var(--player-height);
+  padding: 12px 24px;
+}
+body .player-bar .controls {
+  gap: 20px;
+}
+body .player-bar .left-section {
+  width: 28%;
+  min-width: 0;
+}
+body .player-bar .right-section {
+  width: 23%;
+  min-width: 170px;
+}
+body .player-bar .track-info {
+  flex: 1;
+}
+body .player-bar .track-cover:focus-visible .cover-hover-overlay {
+  opacity: 1;
+}
+body .player-bar .volume-slider-wrapper {
+  width: 74px;
+}
+body .player-bar .ctrl-btn {
+  color: var(--color-text-secondary);
+}
+body .player-bar .ctrl-btn.active {
+  color: var(--color-primary);
+}
+body .player-bar .play-btn {
+  color: var(--color-text-inverse);
+  box-shadow: 0 4px 12px var(--color-primary-bg);
+}
+body .player-bar .progress-row {
+  gap: 10px;
+}
+body .app-container:has(> .has-player) .sidebar-region {
+  top: calc((100dvh - var(--player-height) - var(--shell-gap)) / 2);
+}
+body .app-container:has(> .has-player) .sidebar-trigger {
+  bottom: calc(var(--player-height) + var(--shell-gap) * 2);
+}
+body .playlist-panel.glass-surface {
+  top: 18px;
+  right: 18px;
+  height: calc(100dvh - 36px);
+  width: 390px;
+}
+body
+  :is(
+    .playlist-overlay,
+    .overlay,
+    .comment-modal-overlay,
+    .track-detail-overlay,
+    .atp-overlay,
+    .modal-overlay
+  ) {
+  background: rgb(8 16 28 / 0.28);
+}
+body .panel.glass-surface {
+  max-width: 1120px;
+  max-height: calc(100dvh - 64px);
+  overflow: hidden;
+  padding: 28px;
+}
+body .panel :is(.results-content, .loading-state) {
+  min-height: 0;
+  overflow-y: auto;
+}
+body .panel .music-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+body
+  :is(
+    .comment-modal,
+    .track-detail-modal,
+    .atp-modal,
+    .modal-card
+  ).glass-surface {
+  max-height: calc(100dvh - 64px);
+}
+body .dialog.glass-surface {
+  padding: 28px;
+}
+body :is(.more-menu, .context-menu, .user-menu, .toast) {
+  background: var(--glass-solid);
+  border-radius: 14px;
+}
+body .back-to-top.with-player {
+  bottom: calc(var(--player-height) + var(--shell-gap) * 2 + 14px);
+}
+
+// Login uses one material instead of stacking several independent blurs.
+body .login-page {
+  min-height: 100dvh;
+  padding: 50px;
+}
+body .login-card.glass-surface {
+  max-width: 860px;
+  overflow: visible;
+}
+body .login-page :is(.glass-panel, .glass-input) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body .login-page .brand-section {
+  background: transparent;
+  border-radius: 28px 0 0 28px;
+}
+body .login-page .form-section {
+  background: var(--surface-content);
+  border-radius: 0 28px 28px 0;
+  padding: 48px;
+}
+body .login-page .logo-ring {
+  border-radius: 24px;
+  background: var(--color-primary-bg);
+  border-color: var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+body .login-page .brand-name {
+  font-size: 38px;
+}
+body .login-page .input-group {
+  background: var(--surface-content);
+  border: 1px solid var(--color-border);
+}
+body .login-page .tab.active::after {
+  box-shadow: none;
+}
+body .login-page .wave-bar {
+  animation: none;
+  height: 40%;
+}
+body .login-page .wave-bar:nth-child(2n) {
+  height: 70%;
+}
+body .login-page .wave-bar:nth-child(3) {
+  height: 100%;
+}
+body .login-page .submit-btn {
+  border-radius: var(--radius-full);
+  box-shadow: none;
+}
+
+@media (max-width: 1199px) {
+  body .app-container .content-wrapper,
+  body .app-container .daily-recommend-view,
+  body .app-container .toplist-view,
+  body .app-container .profile-layout {
+    padding: 20px var(--content-inline-padding) 32px;
+  }
+  body .app-container :is(.page-title, .dr-title, .tl-title) {
+    font-size: 30px;
+  }
+  body .app-container .tl-card {
+    padding: 18px;
+    gap: 12px;
+  }
+  body .app-container .tl-card-cover {
+    width: 76px;
+    height: 76px;
+  }
+  body .app-container :is(.playlist-info, .artist-info) {
+    gap: 24px;
+  }
+  body .app-container :is(.playlist-info, .artist-info) .cover {
+    width: 180px;
+    height: 180px;
+  }
+  body .app-container :is(.playlist-info, .artist-info) .title {
+    font-size: 26px;
+  }
+  body
+    .app-container
+    :is(.playlist-info, .artist-info)
+    :is(.play-all-btn, .action-btn) {
+    padding-inline: 16px;
+  }
+  body .app-container .profile-view .menu-item {
+    padding: 10px;
+  }
+  body .app-container .profile-view .menu-item svg {
+    width: 15px;
+  }
+  body .player-bar.glass-surface {
+    padding-inline: 18px;
+  }
+  body .player-bar .controls {
+    gap: 14px;
+  }
+  body .player-bar .left-section {
+    width: 31%;
+  }
+  body .player-bar .left-section .ctrl-btn {
+    width: 30px;
+  }
+  body .player-bar .right-section {
+    width: 22%;
+  }
+  body .panel .music-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .home-collection {
+    animation: collection-arrive 450ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes collection-arrive {
+    from {
+      transform: translateY(12px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body .glass-surface {
+    --glass-tint: var(--glass-solid);
+  }
+  body .app-container {
+    --surface-content: var(--glass-solid);
+  }
+}
+
+body .player-bar.glass-surface.immersive {
+  border-color: var(--glass-border);
+}
+body .app-container .track-item:focus-within .cover-play-icon {
+  opacity: 1;
+}
+
+// Deep accent fills and theme-specific ink keep every user palette readable.
+body
+  .app-container
+  :is(.featured-play, .play-all-btn, .btn-confirm, .submit-btn, .tl-play-btn),
+body .player-bar .play-btn,
+body .music-card .play-btn,
+body .app-container .category-filter .tag.active {
+  background: var(--color-action-bg);
+  color: #f8fafc;
+}
+body
+  .app-container
+  :is(
+    .featured-play,
+    .play-all-btn,
+    .btn-confirm,
+    .submit-btn,
+    .tl-play-btn
+  ):hover,
+body .player-bar .play-btn:hover,
+body .music-card .play-btn:hover,
+body .app-container .category-filter .tag.active:hover,
+body .app-container .create-btn:hover {
+  background: var(--color-action-hover);
+  color: #f8fafc;
+}
+body .app-container :is(.dr-tab, .tl-tab, .tab-btn, .history-tab).active,
+body .app-container .profile-view .menu-item.active,
+body .app-container .create-btn,
+body .app-container .track-list .track-item.active .name,
+body .app-container .panel .search-tab.active,
+body .app-container .panel .search-tab.active .tab-count,
+body .app-container .profile-view .quality-tab.active {
+  color: var(--color-accent-ink);
+}
+body .app-container .create-btn:hover {
+  color: #f8fafc;
+}
+body .app-container .playlist-panel .playlist-item.active .item-name {
+  color: var(--color-text);
+}
+body .music-card .overlay {
+  background: rgb(8 16 28 / 0.5);
+}
+body .app-container .playlist-panel .playlist-item:focus-within .item-remove,
+body .app-container .track-list .track-item:focus-within .actions {
+  opacity: 1;
+}
+body .app-container .playlist-panel .playlist-item:focus-visible {
+  outline-offset: -3px;
+}

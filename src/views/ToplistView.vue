@@ -1,7 +1,7 @@
 <script setup>
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
-  import { Play, Loader2 } from '@lucide/vue'
+  import { Play, Loader2 } from '@/components/icons'
   import { useMusicStore } from '@/stores/music'
   import { usePlayerStore } from '@/stores/player'
   import { getPlaylistDetail } from '@/api/playlist'
@@ -121,6 +121,9 @@
           v-for="item in categorizedToplists"
           :key="item.id"
           class="tl-card"
+          role="link"
+          tabindex="0"
+          @keydown.enter.self="goToPlaylist(item.id)"
           @click="goToPlaylist(item.id)"
         >
           <div class="tl-card-cover">
@@ -132,7 +135,11 @@
               decoding="async"
             />
             <div class="tl-card-overlay">
-              <button class="tl-play-btn" @click.stop="playToplist(item.id)">
+              <button
+                class="tl-play-btn"
+                :aria-label="`播放${item.name}`"
+                @click.stop="playToplist(item.id)"
+              >
                 <Play :size="20" color="#ffffff" fill="#ffffff" />
               </button>
             </div>

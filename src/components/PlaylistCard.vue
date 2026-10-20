@@ -1,6 +1,6 @@
 ﻿<script setup>
   import { useRouter } from 'vue-router'
-  import { Music } from '@lucide/vue'
+  import { Music } from '@/components/icons'
 
   const props = defineProps({
     playlist: { type: Object, required: true }
@@ -14,7 +14,14 @@
 </script>
 
 <template>
-  <div class="playlist-card" @click="goToPlaylist">
+  <div
+    class="playlist-card"
+    role="link"
+    tabindex="0"
+    :aria-label="playlist.name"
+    @click="goToPlaylist"
+    @keydown.enter.self="goToPlaylist"
+  >
     <div class="cover-wrapper">
       <img
         :src="playlist.coverUrl"

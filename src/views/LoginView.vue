@@ -1,9 +1,9 @@
 ﻿<script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
   // 参考 YesPlayMusic src/views/loginAccount.vue
   import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import {
-    Music,
     User,
     Lock,
     Eye,
@@ -14,7 +14,8 @@
     Monitor,
     RefreshCw,
     ShieldCheck
-  } from '@lucide/vue'
+  } from '@/components/icons'
+  import BrandMark from '@/components/BrandMark.vue'
   import QRCode from 'qrcode'
   import { useUserStore } from '@/stores/user'
   import { useUiStore } from '@/stores/ui'
@@ -275,193 +276,7 @@
     }
   }
 
-  // ========== 抽象声波动效背景 ==========
-  const canvasRef = ref(null)
-  let animationId = null
-  let particles = []
-
-  function initCanvasAnimation() {
-    const canvas = canvasRef.value
-    if (!canvas) return
-
-    const ctx = canvas.getContext('2d')
-    let width = (canvas.width = window.innerWidth)
-    let height = (canvas.height = window.innerHeight)
-
-    const isDark = () => effectiveTheme.value === 'dark'
-
-    // 粒子配置
-    const particleCount = Math.min(80, Math.floor((width * height) / 20000))
-    particles = []
-    for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        radius: Math.random() * 2 + 1,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        alpha: Math.random() * 0.5 + 0.2
-      })
-    }
-
-    let time = 0
-
-    function draw() {
-      const dark = isDark()
-      ctx.clearRect(0, 0, width, height)
-
-      // 基础渐变背景
-      const gradient = ctx.createLinearGradient(0, 0, width, height)
-      if (dark) {
-        gradient.addColorStop(0, '#0a0e27')
-        gradient.addColorStop(0.45, '#12121e')
-        gradient.addColorStop(1, '#1a103c')
-      } else {
-        gradient.addColorStop(0, '#f0f4ff')
-        gradient.addColorStop(0.45, '#f8faff')
-        gradient.addColorStop(1, '#fff0f5')
-      }
-      ctx.fillStyle = gradient
-      ctx.fillRect(0, 0, width, height)
-
-      // 绘制大型柔和光晕
-      const glow1 = ctx.createRadialGradient(
-        width * 0.2,
-        height * 0.3,
-        0,
-        width * 0.2,
-        height * 0.3,
-        width * 0.6
-      )
-      glow1.addColorStop(
-        0,
-        dark ? 'rgba(139, 92, 246, 0.22)' : 'rgba(59, 130, 246, 0.18)'
-      )
-      glow1.addColorStop(1, 'rgba(0, 0, 0, 0)')
-      ctx.fillStyle = glow1
-      ctx.fillRect(0, 0, width, height)
-
-      const glow2 = ctx.createRadialGradient(
-        width * 0.8,
-        height * 0.7,
-        0,
-        width * 0.8,
-        height * 0.7,
-        width * 0.5
-      )
-      glow2.addColorStop(
-        0,
-        dark ? 'rgba(236, 72, 153, 0.18)' : 'rgba(236, 72, 153, 0.14)'
-      )
-      glow2.addColorStop(1, 'rgba(0, 0, 0, 0)')
-      ctx.fillStyle = glow2
-      ctx.fillRect(0, 0, width, height)
-
-      // 绘制声波条形
-      const barCount = 60
-      const barWidth = width / barCount
-      const waveBase = height * 0.65
-      const waveColors = dark
-        ? [
-            'rgba(139, 92, 246, 0.35)',
-            'rgba(59, 130, 246, 0.3)',
-            'rgba(236, 72, 153, 0.25)'
-          ]
-        : [
-            'rgba(59, 130, 246, 0.22)',
-            'rgba(139, 92, 246, 0.18)',
-            'rgba(236, 72, 153, 0.14)'
-          ]
-
-      for (let layer = 0; layer < 3; layer++) {
-        ctx.beginPath()
-        for (let i = 0; i <= barCount; i++) {
-          const x = i * barWidth
-          const frequency = 0.015 + layer * 0.005
-          const amplitude = 60 + layer * 30
-          const offset = time * (0.02 + layer * 0.01) + layer * 2
-          const y =
-            waveBase +
-            Math.sin(i * frequency + offset) * amplitude +
-            Math.cos(i * frequency * 0.5 + offset) * amplitude * 0.5
-          if (i === 0) {
-            ctx.moveTo(x, height)
-            ctx.lineTo(x, y)
-          } else {
-            const prevX = (i - 1) * barWidth
-            const prevY =
-              waveBase +
-              Math.sin((i - 1) * frequency + offset) * amplitude +
-              Math.cos((i - 1) * frequency * 0.5 + offset) * amplitude * 0.5
-            const cpX = (prevX + x) / 2
-            ctx.quadraticCurveTo(cpX, prevY, (cpX + x) / 2, (prevY + y) / 2)
-            ctx.quadraticCurveTo(x, y, x, y)
-          }
-          ctx.lineTo(x, height)
-        }
-        ctx.lineTo(width, height)
-        ctx.closePath()
-        ctx.fillStyle = waveColors[layer]
-        ctx.fill()
-      }
-
-      // 绘制粒子
-      particles.forEach(p => {
-        p.x += p.vx
-        p.y += p.vy
-
-        if (p.x < 0 || p.x > width) p.vx *= -1
-        if (p.y < 0 || p.y > height) p.vy *= -1
-
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2)
-        ctx.fillStyle = dark
-          ? `rgba(255, 255, 255, ${p.alpha})`
-          : `rgba(59, 130, 246, ${p.alpha})`
-        ctx.fill()
-      })
-
-      // 连接临近粒子
-      ctx.strokeStyle = dark
-        ? 'rgba(255, 255, 255, 0.04)'
-        : 'rgba(59, 130, 246, 0.06)'
-      ctx.lineWidth = 0.5
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 120) {
-            ctx.beginPath()
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.stroke()
-          }
-        }
-      }
-
-      time += 1
-      animationId = requestAnimationFrame(draw)
-    }
-
-    function handleResize() {
-      width = canvas.width = window.innerWidth
-      height = canvas.height = window.innerHeight
-    }
-
-    window.addEventListener('resize', handleResize)
-    draw()
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      if (animationId) cancelAnimationFrame(animationId)
-    }
-  }
-
-  let canvasCleanup = null
-
   onMounted(() => {
-    canvasCleanup = initCanvasAnimation()
     if (mode.value === 'qrCode') {
       getQrCodeKey()
     }
@@ -470,14 +285,11 @@
   onUnmounted(() => {
     clearQrCodeInterval()
     if (captchaTimer) clearInterval(captchaTimer)
-    if (canvasCleanup) canvasCleanup()
   })
 </script>
 
 <template>
   <div class="login-page">
-    <canvas ref="canvasRef" class="ambient-canvas" aria-hidden="true" />
-
     <button
       class="theme-toggle"
       type="button"
@@ -489,11 +301,11 @@
       <Moon v-else :size="18" />
     </button>
 
-    <div class="login-card glass">
+    <GlassSurface class="login-card">
       <div class="brand-section glass-panel">
         <div class="brand-logo">
           <div class="logo-ring">
-            <Music :size="40" class="logo-icon" />
+            <BrandMark :size="40" class="logo-icon" />
           </div>
           <h1 class="brand-name">听潮</h1>
         </div>
@@ -570,6 +382,7 @@
               验证码登录
             </button>
           </div>
+          <label class="field-label" for="login-account">手机号</label>
           <div
             class="input-group glass-input"
             :class="{ error: errors.account }"
@@ -577,14 +390,24 @@
             <User :size="18" class="input-icon" />
             <input
               v-model="form.account"
+              id="login-account"
+              autocomplete="username"
+              aria-describedby="account-error"
               type="text"
               placeholder="请输入网易云手机号"
               @blur="validateAccount"
             />
           </div>
-          <div class="error-msg">{{ errors.account }}</div>
+          <div id="account-error" class="error-msg">{{ errors.account }}</div>
 
           <!-- 密码 -->
+          <label
+            v-if="credentialType === 'password'"
+            class="field-label"
+            for="login-password"
+          >
+            密码
+          </label>
           <div
             v-if="credentialType === 'password'"
             class="input-group glass-input"
@@ -593,6 +416,9 @@
             <Lock :size="18" class="input-icon" />
             <input
               v-model="form.password"
+              id="login-password"
+              autocomplete="current-password"
+              aria-label="密码"
               :type="showPassword ? 'text' : 'password'"
               placeholder="请输入密码"
               @blur="validatePassword"
@@ -600,6 +426,7 @@
             <button
               type="button"
               class="toggle-pwd"
+              :aria-label="showPassword ? '隐藏密码' : '显示密码'"
               @click="showPassword = !showPassword"
             >
               <Eye v-if="!showPassword" :size="18" />
@@ -612,6 +439,7 @@
 
           <!-- 验证码 -->
           <template v-else>
+            <label class="field-label" for="login-captcha">验证码</label>
             <div
               class="input-group glass-input captcha-group"
               :class="{ error: errors.captcha }"
@@ -619,6 +447,8 @@
               <ShieldCheck :size="18" class="input-icon" />
               <input
                 v-model="form.captcha"
+                id="login-captcha"
+                autocomplete="one-time-code"
                 type="text"
                 maxlength="6"
                 placeholder="请输入验证码"
@@ -647,7 +477,7 @@
           </button>
         </form>
       </div>
-    </div>
+    </GlassSurface>
   </div>
 </template>
 
@@ -660,15 +490,6 @@
     justify-content: center;
     padding: var(--spacing-md);
     overflow: hidden;
-  }
-
-  .ambient-canvas {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    pointer-events: none;
   }
 
   .theme-toggle {
@@ -1139,5 +960,11 @@
     cursor: not-allowed;
     transform: none;
     box-shadow: var(--shadow-sm);
+  }
+  .field-label {
+    font-size: 12px;
+    font-weight: 600;
+    margin: 2px 0;
+    color: var(--color-text-secondary);
   }
 </style>

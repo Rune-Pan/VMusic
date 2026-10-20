@@ -1,6 +1,7 @@
 ﻿<script setup>
   import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
+  import { ArrowLeft } from '@/components/icons'
   import { useMusicStore } from '@/stores/music'
   import { usePlayerStore } from '@/stores/player'
   import { resizeImage, formatDuration } from '@/utils/common'
@@ -81,7 +82,13 @@
     if (index !== highlightIndex.value) return
     const el = lyricListRef.value?.children?.[index]
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.scrollIntoView({
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')
+          .matches
+          ? 'instant'
+          : 'smooth',
+        block: 'center'
+      })
     }
   }
 
@@ -158,6 +165,10 @@
   // ESC 退出播放页：有历史则 back，否则回首页兜底
   function onKeydown(e) {
     if (e.key !== 'Escape') return
+    leavePlayer()
+  }
+
+  function leavePlayer() {
     if (window.history.length > 1) {
       router.back()
     } else {
@@ -168,6 +179,10 @@
 
 <template>
   <div class="player-view" :style="lyricStyle">
+    <button class="stage-back" @click="leavePlayer">
+      <ArrowLeft :size="18" />
+      返回浏览
+    </button>
     <div class="player-content">
       <div class="left-section">
         <div class="cover-wrapper">
@@ -190,6 +205,10 @@
             v-for="(line, index) in lyrics"
             :key="index"
             class="lyric-line"
+            role="button"
+            tabindex="0"
+            @keydown.enter.stop="seekToLyric(line.time)"
+            @keydown.space.stop.prevent="seekToLyric(line.time)"
             :class="{ active: index === highlightIndex }"
             @click="seekToLyric(line.time)"
           >
@@ -221,128 +240,135 @@
     inset: 0;
     z-index: 1;
   }
+  .stage-back {
+    position: absolute;
+    top: 26px;
+    left: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    padding: 9px 14px;
+    border-radius: var(--radius-full);
+    background: var(--surface-content);
+  }
   .player-content {
     display: grid;
-    grid-template-columns: 40% 60%;
-    gap: var(--spacing-2xl);
-    max-width: var(--content-max-width);
-    margin: 0 auto;
-    padding: var(--spacing-2xl) var(--spacing-xl);
+    grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.1fr);
+    gap: 70px;
+    max-width: 1240px;
     height: 100%;
+    margin: auto;
+    padding: 86px 72px calc(var(--player-height) + 48px);
   }
   .left-section {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
+    min-width: 0;
   }
   .cover-wrapper {
     position: relative;
-    width: 280px;
-    height: 280px;
-    margin-bottom: var(--spacing-xl);
+    width: min(100%, 380px);
+    aspect-ratio: 1;
   }
   .cover {
     width: 100%;
     height: 100%;
-    border-radius: var(--radius-xl);
+    aspect-ratio: 1;
+    border-radius: 24px;
     object-fit: cover;
-    box-shadow: var(--shadow-xl);
+    box-shadow: 0 28px 60px rgb(8 18 35 / 0.25);
     position: relative;
     z-index: 1;
   }
   .cover-glow {
-    position: absolute;
-    inset: 20px;
-    border-radius: var(--radius-xl);
-    filter: blur(40px);
-    opacity: 0.4;
-    z-index: 0;
-  }
-  .track-meta {
-    text-align: center;
-    padding-top: var(--spacing-lg);
-    margin-bottom: var(--spacing-md);
-  }
-  .track-name {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--color-text);
-    margin-bottom: var(--spacing-xs);
-  }
-  .track-artist {
-    font-size: 16px;
-    color: var(--color-text-secondary);
-    margin-bottom: 4px;
-  }
-  .track-album {
-    font-size: 14px;
-    color: var(--color-text-muted);
+    display: none;
   }
   .right-section {
     overflow: hidden;
-    position: relative;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    min-width: 0;
+  }
+  .track-meta {
+    flex: 0 0 auto;
+    margin: 0 0 32px;
+    padding-top: 12px;
+  }
+  .track-name {
+    font-size: clamp(26px, 2.8vw, 38px);
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+    margin-bottom: 10px;
+    overflow-wrap: anywhere;
+  }
+  .track-artist {
+    font-size: 15px;
+    color: var(--color-text-secondary);
+  }
+  .track-album {
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
   }
   .lyric-list {
     flex: 1;
-    width: 100%;
+    min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
-    padding: var(--spacing-md) var(--spacing-md) 120px;
-    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    padding: 16px 20px 45% 12px;
+    scroll-padding: 64px;
+  }
+  .lyric-list::-webkit-scrollbar-corner {
+    background: transparent;
   }
   .lyric-line {
-    position: relative;
-    padding: var(--spacing-sm) 0;
-    text-align: center;
+    padding: 12px 0;
+    overflow-wrap: anywhere;
+    color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all var(--transition-base);
-    line-height: 1.8;
-  }
-  .lyric-time {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: calc(var(--lyric-font-size) - 4px);
-    font-variant-numeric: tabular-nums;
-    color: var(--color-text-muted);
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-  }
-  .lyric-line:hover .lyric-time {
-    opacity: 1;
+    transition:
+      color 220ms ease,
+      transform 220ms ease;
+    transform-origin: left center;
   }
   .lyric-original {
-    font-size: var(--lyric-font-size);
-    color: var(--color-text-muted);
-    transition: all var(--transition-base);
-  }
-  .lyric-line:hover .lyric-original {
-    color: var(--color-text-secondary);
-  }
-  .lyric-line.active .lyric-original {
-    color: var(--color-text);
-    font-size: calc(var(--lyric-font-size) * 1.125);
+    font-size: var(--lyric-font-size, 24px);
     font-weight: 600;
+    line-height: 1.65;
   }
   .lyric-translation {
-    font-size: calc(var(--lyric-font-size) - 3px);
-    color: var(--color-text-muted);
-    margin-top: 2px;
-    opacity: 0.7;
+    font-size: 14px;
+    margin-top: 3px;
+    font-weight: 400;
   }
-  .lyric-line.active .lyric-translation {
-    color: var(--color-text-secondary);
-    opacity: 1;
+  .lyric-time {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .lyric-line.active {
+    color: var(--color-text);
+    transform: scale(1.025);
+  }
+  .lyric-line:hover {
+    color: var(--color-primary);
   }
   .no-lyric {
-    text-align: center;
-    color: var(--color-text-muted);
-    padding: var(--spacing-3xl);
+    padding-block: 48px;
+    color: var(--color-text-secondary);
+    font-size: 15px;
+  }
+  @media (max-width: 1199px) {
+    .player-content {
+      padding-inline: 44px;
+      gap: 40px;
+      grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.1fr);
+    }
+    .track-meta {
+      margin-bottom: 18px;
+    }
   }
 </style>

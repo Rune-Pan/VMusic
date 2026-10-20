@@ -1,5 +1,6 @@
 <script setup>
-  import { X, Play, Trash2 } from '@lucide/vue'
+  import GlassSurface from '@/components/GlassSurface.vue'
+  import { X, Play, Trash2 } from '@/components/icons'
   import { resizeImage, formatDuration } from '@/utils/common'
   import { IMAGE_SIZE_AVATAR } from '@/constants'
   import { useEscClose } from '@/composables/useEscClose'
@@ -54,7 +55,7 @@
 <template>
   <transition name="slide-right">
     <div v-if="visible" class="playlist-overlay" @click="close">
-      <div class="playlist-panel" @click.stop>
+      <GlassSurface class="playlist-panel" modal label="播放列表" @click.stop>
         <div class="playlist-header">
           <div class="playlist-title">播放列表</div>
           <button class="close-btn" aria-label="关闭" @click="close">
@@ -69,6 +70,11 @@
             v-for="(track, index) in playlist"
             :key="track.id"
             class="playlist-item"
+            role="button"
+            tabindex="0"
+            :aria-label="`播放${track.name}`"
+            @keydown.enter.self.stop="playTrack(index)"
+            @keydown.space.self.stop.prevent="playTrack(index)"
             :class="{ active: isPlaying(track) }"
             @click="playTrack(index)"
           >
@@ -110,7 +116,7 @@
             播放列表为空
           </div>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   </transition>
 </template>

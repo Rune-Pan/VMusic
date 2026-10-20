@@ -1,8 +1,6 @@
 // 听潮 Global Styles
 // Reset + base element styles + scrollbar + utility classes
 
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
 *,
 *::before,
 *::after {
@@ -12,7 +10,7 @@
 }
 
 html {
-  min-width: 375px;
+  min-width: 880px;
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   // 始终为滚动条预留固定空间，避免滚动条显隐导致内容区宽度跳变抖动
@@ -21,7 +19,6 @@ html {
 
 body {
   font-family:
-    'Poppins',
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -43,7 +40,7 @@ body {
 }
 
 #app {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 a {
@@ -66,7 +63,7 @@ button {
   color: inherit;
   transition: all var(--transition-fast);
 
-  &:focus {
+  &:focus:not(:focus-visible) {
     outline: none;
   }
 
@@ -100,8 +97,8 @@ ol {
 
 // Scrollbar styles — 悬停容器才显现，默认占位透明（宽度恒定无抖动）
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
 ::-webkit-scrollbar-track {
@@ -180,4 +177,17 @@ ol {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+input {
+  caret-color: var(--color-primary);
 }

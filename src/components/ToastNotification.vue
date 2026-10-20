@@ -1,5 +1,5 @@
 <script setup>
-  import { CheckCircle, AlertCircle, XCircle, X } from '@lucide/vue'
+  import { CheckCircle, AlertCircle, XCircle, X } from '@/components/icons'
   import { useUiStore } from '@/stores/ui'
 
   const uiStore = useUiStore()

@@ -1,11 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { getPageScrollContainer, queuePageScroll } from '@/utils/pageScroll'
+
+const pagePositions = new Map()
+let currentEntry = window.history.state?.position
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   scrollBehavior(to, from, savedPosition) {
-    if (savedPosition) return savedPosition
-    return { top: 0 }
+    const position = savedPosition
+      ? pagePositions.get(window.history.state?.position) || savedPosition
+      : { top: 0, left: 0 }
+    queuePageScroll(position)
+    return false
   },
   routes: [
     {
@@ -62,6 +69,11 @@ const router = createRouter({
 let restored = false
 
 router.beforeEach((to, from, next) => {
+  const container = getPageScrollContainer()
+  pagePositions.set(currentEntry, {
+    top: container ? container.scrollTop : window.scrollY,
+    left: container ? container.scrollLeft : window.scrollX
+  })
   const userStore = useUserStore()
   if (!restored) {
     userStore.restore()
@@ -77,6 +89,10 @@ router.beforeEach((to, from, next) => {
   } else {
     next()
   }
+})
+
+router.afterEach((_to, _from, failure) => {
+  if (!failure) currentEntry = window.history.state?.position
 })
 
 export default router

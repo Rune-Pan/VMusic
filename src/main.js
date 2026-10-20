@@ -8,6 +8,7 @@ import { usePlayerStore } from './stores/player'
 import './assets/styles/variables.scss'
 import './assets/styles/global.scss'
 import './assets/styles/transitions.scss'
+import './assets/styles/desktop.scss'
 
 const app = createApp(App)
 

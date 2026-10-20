@@ -6,6 +6,7 @@ import PlayerView from '@/views/PlayerView.vue'
 import { usePlayerStore } from '@/stores/player'
 import { useMusicStore } from '@/stores/music'
 import { STORAGE_KEYS } from '@/constants'
+import { useShortcuts } from '@/composables/useShortcuts'
 
 vi.mock('howler', () => ({ Howler: { volume: vi.fn() }, Howl: vi.fn() }))
 vi.mock('@/api/track', () => ({
@@ -46,7 +47,10 @@ async function open(id) {
   })
   await router.push(`/player/${id}`)
   await router.isReady()
-  wrapper = mount(PlayerView, { global: { plugins: [pinia, router] } })
+  wrapper = mount(PlayerView, {
+    attachTo: document.body,
+    global: { plugins: [pinia, router] }
+  })
   await flushPromises()
   return router
 }
@@ -111,4 +115,17 @@ it('浏览其它歌曲详情时不会用其歌词跳转正在播放的另一首�
   await flushPromises()
   expect(play).toHaveBeenCalledWith(track(2))
   expect(seek).toHaveBeenCalledWith(1000)
+})
+
+it('空格跳歌词不会再触发全局播放/暂停快捷键', async () => {
+  useShortcuts().setEnabled(true)
+  player.currentTrack = track(1)
+  const togglePlay = vi.spyOn(player, 'togglePlay')
+  const seek = vi.spyOn(player, 'seek')
+  await open(1)
+  await wrapper
+    .find('.lyric-line')
+    .trigger('keydown', { key: ' ', code: 'Space' })
+  expect(seek).toHaveBeenCalledWith(1000)
+  expect(togglePlay).not.toHaveBeenCalled()
 })

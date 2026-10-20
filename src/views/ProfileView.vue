@@ -1,4 +1,6 @@
 ﻿<script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
+  import { useEscClose } from '@/composables/useEscClose'
   import { ref, reactive, computed, onMounted, watch } from 'vue'
   import {
     Plus,
@@ -11,7 +13,7 @@
     Heart,
     Play,
     Crown
-  } from '@lucide/vue'
+  } from '@/components/icons'
   import { userPlaylist } from '@/api/user'
   import { useUserStore } from '@/stores/user'
   import { useMusicStore } from '@/stores/music'
@@ -38,6 +40,8 @@
     eventToShortcut
   } from '@/composables/useShortcuts'
   import { usePreload, PRELOAD_ITEMS } from '@/composables/usePreload'
+  import { scrollPageTo } from '@/utils/pageScroll'
+  import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
 
   const userStore = useUserStore()
   const musicStore = useMusicStore()
@@ -45,6 +49,14 @@
   const playerStore = usePlayerStore()
   const router = useRouter()
   const { theme, setTheme, themeColor, setThemeColor } = useTheme()
+  const {
+    enabled: sidebarAutoHide,
+    triggerWidth: sidebarTriggerWidth,
+    hideDelay: sidebarHideDelay,
+    setEnabled: setSidebarAutoHide,
+    setTriggerWidth: setSidebarTriggerWidth,
+    setHideDelay: setSidebarHideDelay
+  } = useSidebarAutoHide()
   function changeTheme(value) {
     setTheme(value)
   }
@@ -126,6 +138,12 @@
 
   const activeMenu = ref('liked')
   const showPlaylistForm = ref(false)
+  useEscClose(
+    () => showPlaylistForm.value,
+    () => {
+      showPlaylistForm.value = false
+    }
+  )
   const editingPlaylist = ref(null)
   // 播放历史模式：'local' | 'week' | 'all'（参考 YesPlayMusic playHistoryMode）
   const historyMode = ref('local')
@@ -206,7 +224,8 @@
     activeMenu.value = key
     persistActiveMenu()
     // 滚动到页面顶部
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    scrollPageTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
   }
 
   // 网易云歌单
@@ -570,6 +589,46 @@
                 </button>
               </div>
             </div>
+            <div class="form-group sidebar-settings">
+              <div class="form-label">左侧导航</div>
+              <div class="toggle-row">
+                <label class="toggle-label" for="sidebar-auto-hide">自动隐藏导航</label>
+                <label class="toggle-switch">
+                  <input
+                    id="sidebar-auto-hide"
+                    type="checkbox"
+                    :checked="sidebarAutoHide"
+                    @change="setSidebarAutoHide($event.target.checked)"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <p class="sidebar-settings-help">鼠标靠近页面左边缘时展开，离开后自动收起；触摸设备保持常显。</p>
+              <template v-if="sidebarAutoHide">
+                <label class="sidebar-range-label" for="sidebar-trigger-width">
+                  触发区域宽度 <output for="sidebar-trigger-width">{{ sidebarTriggerWidth }} px</output>
+                </label>
+                <input
+                  id="sidebar-trigger-width"
+                  class="sidebar-range"
+                  type="range"
+                  min="4" max="48" step="4"
+                  :value="sidebarTriggerWidth"
+                  @input="setSidebarTriggerWidth(Number($event.target.value))"
+                />
+                <label class="sidebar-range-label" for="sidebar-hide-delay">
+                  隐藏延时 <output for="sidebar-hide-delay">{{ sidebarHideDelay }} 毫秒</output>
+                </label>
+                <input
+                  id="sidebar-hide-delay"
+                  class="sidebar-range"
+                  type="range"
+                  min="0" max="1500" step="50"
+                  :value="sidebarHideDelay"
+                  @input="setSidebarHideDelay(Number($event.target.value))"
+                />
+              </template>
+            </div>
             <div v-if="userStore.userInfo.vipType !== 0" class="form-group">
               <div class="toggle-row">
                 <span class="toggle-label">显示黑胶VIP角标</span>
@@ -750,27 +809,35 @@
         class="modal-overlay"
         @click.self="showPlaylistForm = false"
       >
-        <div class="modal-card">
+        <GlassSurface class="modal-card" modal label="歌单表单">
           <div class="modal-header">
             <h3>{{ editingPlaylist ? '编辑歌单' : '新建歌单' }}</h3>
-            <button class="close-btn" @click="showPlaylistForm = false">
+            <button
+              class="close-btn"
+              aria-label="关闭歌单表单"
+              @click="showPlaylistForm = false"
+            >
               <X :size="20" />
             </button>
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label class="form-label">歌单名称</label>
+              <label class="form-label" for="playlist-name">歌单名称</label>
               <input
                 v-model="playlistForm.name"
+                id="playlist-name"
                 type="text"
                 placeholder="请输入歌单名称"
                 class="form-input"
               />
             </div>
             <div class="form-group">
-              <label class="form-label">歌单简介</label>
+              <label class="form-label" for="playlist-description">
+                歌单简介
+              </label>
               <textarea
                 v-model="playlistForm.description"
+                id="playlist-description"
                 placeholder="请输入歌单简介"
                 class="form-textarea"
                 rows="3"
@@ -785,7 +852,7 @@
               确认
             </button>
           </div>
-        </div>
+        </GlassSurface>
       </div>
     </transition>
   </div>
@@ -976,6 +1043,33 @@
   }
   .settings-form {
     max-width: 480px;
+  }
+  .sidebar-settings-help {
+    margin-top: var(--spacing-sm);
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+  .sidebar-range-label {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    font-size: 13px;
+  }
+  .sidebar-range-label output {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .sidebar-range {
+    width: 100%;
+    min-height: 32px;
+    accent-color: var(--color-action-bg);
+  }
+  .sidebar-range:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
   .quality-segmented {
     display: inline-flex;

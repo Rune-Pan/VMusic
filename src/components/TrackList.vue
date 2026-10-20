@@ -1,6 +1,6 @@
 ﻿<script setup>
   import { ref, onMounted, onUnmounted } from 'vue'
-  import { Trash2, Play, ListEnd, Heart } from '@lucide/vue'
+  import { Trash2, Play, ListEnd, Heart } from '@/components/icons'
   import { usePlayerStore } from '@/stores/player'
   import { useUserStore } from '@/stores/user'
   import { useUiStore } from '@/stores/ui'
@@ -144,7 +144,15 @@
       @contextmenu="openContextMenu($event, track)"
     >
       <div class="index">{{ index + 1 }}</div>
-      <div class="info" @click="playTrack(track, index)">
+      <div
+        class="info"
+        role="button"
+        tabindex="0"
+        :aria-label="`播放${track.name}`"
+        @keydown.enter.stop="playTrack(track, index)"
+        @keydown.space.stop.prevent="playTrack(track, index)"
+        @click="playTrack(track, index)"
+      >
         <div class="track-cover-wrapper">
           <img
             :src="resizeImage(track.al?.picUrl, IMAGE_SIZE_CARD)"
@@ -197,6 +205,7 @@
         <button
           v-if="showRemove"
           class="action-btn delete"
+          :aria-label="`移除${track.name}`"
           @click.stop="emit('remove', track)"
         >
           <Trash2 :size="14" />

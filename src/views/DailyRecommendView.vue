@@ -1,6 +1,6 @@
 <script setup>
   import { ref, onMounted } from 'vue'
-  import { Play, Loader2 } from '@lucide/vue'
+  import { Play, Loader2 } from '@/components/icons'
   import { useMusicStore } from '@/stores/music'
   import { usePlayerStore } from '@/stores/player'
   import TrackList from '@/components/TrackList.vue'

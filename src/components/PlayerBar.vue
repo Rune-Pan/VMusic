@@ -1,4 +1,5 @@
 ﻿<script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
   import {
     Play,
     Pause,
@@ -15,7 +16,7 @@
     Ellipsis,
     Maximize2,
     Minimize2
-  } from '@lucide/vue'
+  } from '@/components/icons'
   import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { usePlayerStore } from '@/stores/player'
@@ -198,10 +199,14 @@
 </script>
 
 <template>
-  <div class="player-bar" :class="{ immersive: isPlayerPage }">
+  <GlassSurface class="player-bar" :class="{ immersive: isPlayerPage }">
     <div class="controls">
       <div class="left-section">
-        <div class="track-cover" @click="goToPlayer">
+        <button
+          class="track-cover"
+          :aria-label="isPlayerPage ? '返回浏览' : '展开播放页'"
+          @click="goToPlayer"
+        >
           <img
             :src="playerStore.currentTrack?.al?.picUrl || PLACEHOLDER_COVER_48"
             alt="cover"
@@ -211,7 +216,7 @@
             <Minimize2 v-if="isPlayerPage" :size="18" />
             <Maximize2 v-else :size="18" />
           </div>
-        </div>
+        </button>
         <div class="track-info" @click="goToPlayer">
           <div class="name text-ellipsis">
             {{ playerStore.currentTrack?.name || '未知歌曲' }}
@@ -321,6 +326,7 @@
               step="0.01"
               :value="playerStore.volume"
               class="volume-slider"
+              aria-label="音量"
               @input="onVolumeInput"
               @focus="volumeHovering = true"
               @blur="volumeHovering = false"
@@ -345,7 +351,7 @@
         >
           <ListMusic :size="18" />
         </button>
-        <div ref="moreMenuRef" class="more-menu-wrapper">
+        <div ref="moreMenuRef" class="more-menu-wrapper" data-dialog-return>
           <button
             class="ctrl-btn"
             aria-label="更多"
@@ -369,7 +375,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </GlassSurface>
 
   <CommentModal
     :visible="showCommentModal"

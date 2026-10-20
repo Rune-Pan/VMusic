@@ -10,13 +10,18 @@
   import ToastNotification from '@/components/ToastNotification.vue'
   import SearchResultsOverlay from '@/components/SearchResultsOverlay.vue'
   import BackToTop from '@/components/BackToTop.vue'
+  import AmbientBackground from '@/components/AmbientBackground.vue'
+  import { resizeImage } from '@/utils/common'
   import { useShortcuts } from '@/composables/useShortcuts'
   import { runPreload } from '@/composables/usePreload'
+  import { cancelPageScroll, restorePageScroll } from '@/utils/pageScroll'
+  import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
 
   const userStore = useUserStore()
   const playerStore = usePlayerStore()
   const musicStore = useMusicStore()
   const route = useRoute()
+  const { isAutoHideActive } = useSidebarAutoHide()
   // 挂载快捷键监听（内部仅安装一次）
   useShortcuts()
 
@@ -41,7 +46,21 @@
 </script>
 
 <template>
-  <div class="app-container">
+  <div
+    class="app-container"
+    :class="{
+      'desktop-shell': showNavbar,
+      'player-stage': isPlayerPage,
+      'sidebar-auto-hide': showNavbar && isAutoHideActive
+    }"
+  >
+    <AmbientBackground
+      :cover-url="
+        userStore.isLoggedIn
+          ? resizeImage(playerStore.currentTrack?.al?.picUrl, 480)
+          : ''
+      "
+    />
     <Navbar v-if="showNavbar" />
     <main
       class="main-content"
@@ -49,10 +68,18 @@
         'has-navbar': userStore.isLoggedIn && !isPlayerPage,
         'has-player': userStore.isLoggedIn && playerStore.hasTrack
       }"
+      @wheel.passive="cancelPageScroll"
+      @touchstart.passive="cancelPageScroll"
+      @pointerdown="cancelPageScroll"
+      @keydown="cancelPageScroll"
     >
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
-          <component :is="Component" />
+        <transition name="fade" mode="out-in" @after-enter="restorePageScroll">
+          <component
+            :is="Component"
+            @vue:mounted="restorePageScroll"
+            @vue:updated="restorePageScroll"
+          />
         </transition>
       </router-view>
     </main>
@@ -66,7 +93,8 @@
 
 <style scoped>
   .app-container {
-    min-height: 100vh;
+    --main-side-offset: calc(var(--sidebar-width) + var(--shell-gap) * 2);
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
   }
@@ -74,14 +102,30 @@
   .main-content {
     flex: 1;
     width: 100%;
-    transition: padding-top 0.3s ease;
+    position: relative;
+    min-width: 0;
+  }
+
+  .app-container.desktop-shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding-top: calc(var(--navbar-height) + var(--shell-gap));
   }
 
   .main-content.has-navbar {
-    padding-top: var(--navbar-height);
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    scroll-padding-block: var(--spacing-md);
+    padding-left: var(--main-side-offset);
   }
 
   .main-content.has-player {
-    padding-bottom: var(--player-height);
+    padding-bottom: calc(var(--player-height) + var(--shell-gap) * 2);
+  }
+
+  .sidebar-auto-hide {
+    --main-side-offset: 0px;
   }
 </style>

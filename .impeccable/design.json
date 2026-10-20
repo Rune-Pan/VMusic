@@ -1,0 +1,511 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-19T06:56:34.541Z",
+  "title": "Design System: 听潮 · VMusic",
+  "extensions": {
+    "sources": [
+      "src/assets/styles/variables.scss",
+      "src/assets/styles/global.scss",
+      "src/assets/styles/desktop.scss",
+      "src/constants.js",
+      "src/composables/useTheme.js",
+      "src/components/GlassSurface.vue",
+      "src/components/AmbientBackground.vue",
+      "src/composables/useAmbientCover.js",
+      "src/components/NavBar.vue",
+      "src/components/MusicCard.vue",
+      "src/views/PlayerView.vue"
+    ],
+    "extraction": "Final cascade values; theme preset source overrides the five accent custom properties. DESIGN.md frontmatter owns primitive colors, typography, rounded, spacing and component tokens.",
+    "brand": {
+      "name": "B「潮·水势」",
+      "component": "src/components/BrandMark.vue",
+      "viewBox": "0 0 32 32",
+      "strokeWidth": 2.5,
+      "websiteSizes": { "navigation": 22, "login": 40 },
+      "websiteColor": "currentColor; inherits --color-primary",
+      "favicon": "public/favicon.ico; fixed #3b82f6 and white, simplified at 16px",
+      "desktopIntegrated": false
+    },
+    "parameters": {
+      "DESIGN_VARIANCE": 7,
+      "MOTION_INTENSITY": 6,
+      "VISUAL_DENSITY": 4
+    },
+    "shadows": [
+      {
+        "name": "glass-light",
+        "value": "0 12px 40px rgb(48 64 85 / 0.12)",
+        "purpose": "浅色悬浮控制与任务浮层"
+      },
+      {
+        "name": "glass-dark",
+        "value": "0 16px 48px rgb(5 12 23 / 0.32)",
+        "purpose": "深色悬浮控制与任务浮层"
+      },
+      {
+        "name": "glass-inner",
+        "value": "inset 0 1px 0 var(--glass-highlight)",
+        "purpose": "玻璃表面顶边高光"
+      },
+      {
+        "name": "glass-edge",
+        "value": "inset 0 0 0 1px var(--glass-inner-border), inset 0 -1px 0 var(--glass-highlight)",
+        "purpose": "光学层内边与下边反射"
+      },
+      {
+        "name": "featured-cover",
+        "value": "0 18px 32px rgb(22 34 52 / 0.18)",
+        "purpose": "首页重点封面"
+      },
+      {
+        "name": "player-cover",
+        "value": "0 28px 60px rgb(8 18 35 / 0.25)",
+        "purpose": "播放详情大封面"
+      }
+    ],
+    "optics": {
+      "foreground": "Unfiltered slot content; independent aria-hidden optics layer at z-index -1 inside an isolated surface.",
+      "chromium": {
+        "condition": "Chrome/Chromium/Edg user agent and CSS.supports('backdrop-filter', 'url(\"#lens\")')",
+        "backdropFilter": "var(--glass-filter) blur(7px) saturate(145%)",
+        "displacement": {
+          "scale": 32,
+          "xChannel": "R",
+          "yChannel": "G",
+          "colorInterpolation": "sRGB"
+        }
+      },
+      "frosted": {
+        "condition": "backdrop-filter supported without Chromium SVG refraction",
+        "backdropFilter": "blur(22px) saturate(155%)"
+      },
+      "solid": {
+        "condition": "No backdrop-filter or prefers-reduced-transparency: reduce",
+        "background": "var(--glass-solid)",
+        "backdropFilter": "none"
+      },
+      "highlight": {
+        "background": "radial-gradient(ellipse at var(--glass-light-x, 15%) var(--glass-light-y, 0%), var(--glass-highlight), transparent 48%), linear-gradient(135deg, rgb(255 255 255 / 0.18), transparent 38%, rgb(255 255 255 / 0.06))",
+        "innerBorderLight": "rgb(255 255 255 / 0.38)",
+        "innerBorderDark": "rgb(232 242 255 / 0.1)"
+      },
+      "mapLifecycle": "ResizeObserver schedules creation via requestAnimationFrame at initialization and resize; never rebuild on pointermove. Transparency preference changes clear or restore the map.",
+      "pointerLifecycle": "At most one pending requestAnimationFrame writes --glass-light-x/--glass-light-y; disabled for reduced motion or transparency."
+    },
+    "ambient": {
+      "source": "Authenticated user's currentTrack.al.picUrl resized to 480px; login uses default background.",
+      "background": "radial-gradient(ellipse at 8% 12%, var(--ambient-blue), transparent 55%), radial-gradient(ellipse at 90% 85%, var(--ambient-silver), transparent 60%), var(--color-body-bg)",
+      "image": {
+        "inset": "-10%",
+        "width": "120%",
+        "height": "120%",
+        "objectFit": "cover",
+        "filter": "blur(36px) saturate(85%)",
+        "lightOpacity": 0.48,
+        "darkOpacity": 0.38
+      },
+      "veil": "linear-gradient(120deg, var(--ambient-veil), transparent 65%, var(--ambient-veil)), var(--ambient-scrim)",
+      "lifecycle": "Keep previous displayed cover until new Image.onload; ignore stale loads; missing/failed images clear cover to default."
+    },
+    "elevation": [
+      {
+        "name": "background",
+        "value": -1,
+        "source": "--z-background"
+      },
+      {
+        "name": "dropdown",
+        "value": 100,
+        "source": "--z-dropdown"
+      },
+      {
+        "name": "sticky-toolbar",
+        "value": 200,
+        "source": "--z-sticky"
+      },
+      {
+        "name": "sidebar",
+        "value": 500,
+        "source": "--z-navbar"
+      },
+      {
+        "name": "player",
+        "value": 500,
+        "source": "--z-player"
+      },
+      {
+        "name": "modal",
+        "value": 1000,
+        "source": "--z-modal"
+      },
+      {
+        "name": "toast",
+        "value": 1100,
+        "source": "--z-toast"
+      },
+      {
+        "name": "tooltip",
+        "value": 1200,
+        "source": "--z-tooltip"
+      }
+    ],
+    "motion": [
+      {
+        "name": "fast",
+        "value": "150ms ease",
+        "purpose": "基础 hover 与状态变化"
+      },
+      {
+        "name": "base",
+        "value": "200ms ease",
+        "purpose": "主题颜色变化"
+      },
+      {
+        "name": "slow",
+        "value": "300ms ease",
+        "purpose": "既有慢速状态变化"
+      },
+      {
+        "name": "navigation",
+        "value": "180ms",
+        "purpose": "背景、文字及 translateX(2px)"
+      },
+      {
+        "name": "cover-crossfade",
+        "value": "opacity 800ms ease",
+        "purpose": "新封面加载完成后交叉淡入"
+      },
+      {
+        "name": "collection-arrive",
+        "value": "450ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "首页 translateY(12px) 到 0，仅 no-preference"
+      },
+      {
+        "name": "lyric",
+        "value": "220ms ease",
+        "purpose": "颜色及当前行 scale(1.025)"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "max-width: 1199px"
+      }
+    ],
+    "desktopGeometry": {
+      "minimumOuterWindow": {
+        "width": 900,
+        "height": 650
+      },
+      "observedElectronContent": {
+        "width": 896,
+        "height": 623
+      },
+      "cssMinWidth": 880,
+      "validationViewports": [
+        {
+          "width": 900,
+          "height": 650
+        },
+        {
+          "width": 1280,
+          "height": 820
+        },
+        {
+          "width": 1440,
+          "height": 900
+        }
+      ],
+      "standard": {
+        "sidebar": 216,
+        "shellGap": 18,
+        "toolbarHeight": 64,
+        "playerHeight": 88,
+        "contentMaxWidth": 1400,
+        "pagePadding": "24px 32px 40px"
+      },
+      "compact": {
+        "sidebar": 180,
+        "shellGap": 14,
+        "pagePadding": "20px 24px 32px",
+        "pageTitleSize": 30,
+        "searchColumns": 3
+      },
+      "playerDetail": {
+        "maxWidth": 1240,
+        "columns": "minmax(240px, 0.9fr) minmax(0, 1.1fr)",
+        "gap": 70,
+        "padding": "86px 72px calc(var(--player-height) + 48px)",
+        "compactGap": 40,
+        "compactPaddingInline": 44
+      }
+    },
+    "accessibility": {
+      "focus": {
+        "outline": "2px solid var(--color-primary)",
+        "defaultOffset": "2px",
+        "buttonInputTabindexOffset": "4px",
+        "searchOffset": "2px",
+        "queueItemOffset": "-3px"
+      },
+      "reducedMotion": "Global animation/transition durations become 0.01ms with one animation iteration; pointer light stops; optics retain a static highlight; home arrival animation is omitted.",
+      "reducedTransparency": "Clear refraction map, use solid glass/content backgrounds, disable backdrop-filter and optical gradients, hide ambient cover, stop pointer light.",
+      "keyboard": "Named fields, modal initial focus/Tab containment/return, focus-visible action affordances, keyboard progress seeking and queue removal.",
+      "boundaries": "Mocked API, public cover assets and silent WAV verification are not real account, listening or cloud-write acceptance.",
+      "evidenceFiles": [
+        ".impeccable/review/verification.json",
+        ".impeccable/review/review-fix-verification.json"
+      ],
+      "queueCurrentTrack": "Current queue title uses var(--color-text); theme selected background identifies the current item. Other navigation and page tabs retain var(--color-accent-ink)."
+    },
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.18801 259.81)",
+          "oklch(26% 0.18801 259.81)",
+          "oklch(38% 0.18801 259.81)",
+          "oklch(49% 0.18801 259.81)",
+          "oklch(61% 0.18801 259.81)",
+          "oklch(72% 0.18801 259.81)",
+          "oklch(84% 0.18801 259.81)",
+          "oklch(95% 0.18801 259.81)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "purple-light": {
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.24659 293.01)",
+          "oklch(26% 0.24659 293.01)",
+          "oklch(38% 0.24659 293.01)",
+          "oklch(49% 0.24659 293.01)",
+          "oklch(61% 0.24659 293.01)",
+          "oklch(72% 0.24659 293.01)",
+          "oklch(84% 0.24659 293.01)",
+          "oklch(95% 0.24659 293.01)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "purple-dark": {
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.15917 293.54)",
+          "oklch(26% 0.15917 293.54)",
+          "oklch(38% 0.15917 293.54)",
+          "oklch(49% 0.15917 293.54)",
+          "oklch(61% 0.15917 293.54)",
+          "oklch(72% 0.15917 293.54)",
+          "oklch(84% 0.15917 293.54)",
+          "oklch(95% 0.15917 293.54)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "rose-light": {
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.22204 17.58)",
+          "oklch(26% 0.22204 17.58)",
+          "oklch(38% 0.22204 17.58)",
+          "oklch(49% 0.22204 17.58)",
+          "oklch(61% 0.22204 17.58)",
+          "oklch(72% 0.22204 17.58)",
+          "oklch(84% 0.22204 17.58)",
+          "oklch(95% 0.22204 17.58)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "rose-dark": {
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.16898 13.43)",
+          "oklch(26% 0.16898 13.43)",
+          "oklch(38% 0.16898 13.43)",
+          "oklch(49% 0.16898 13.43)",
+          "oklch(61% 0.16898 13.43)",
+          "oklch(72% 0.16898 13.43)",
+          "oklch(84% 0.16898 13.43)",
+          "oklch(95% 0.16898 13.43)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "green-light": {
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.19201 149.58)",
+          "oklch(26% 0.19201 149.58)",
+          "oklch(38% 0.19201 149.58)",
+          "oklch(49% 0.19201 149.58)",
+          "oklch(61% 0.19201 149.58)",
+          "oklch(72% 0.19201 149.58)",
+          "oklch(84% 0.19201 149.58)",
+          "oklch(95% 0.19201 149.58)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "green-dark": {
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.18206 151.71)",
+          "oklch(26% 0.18206 151.71)",
+          "oklch(38% 0.18206 151.71)",
+          "oklch(49% 0.18206 151.71)",
+          "oklch(61% 0.18206 151.71)",
+          "oklch(72% 0.18206 151.71)",
+          "oklch(84% 0.18206 151.71)",
+          "oklch(95% 0.18206 151.71)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "body-light": {
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.00516 247.88)",
+          "oklch(26% 0.00516 247.88)",
+          "oklch(38% 0.00516 247.88)",
+          "oklch(49% 0.00516 247.88)",
+          "oklch(61% 0.00516 247.88)",
+          "oklch(72% 0.00516 247.88)",
+          "oklch(84% 0.00516 247.88)",
+          "oklch(95% 0.00516 247.88)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "body-dark": {
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.01345 258.37)",
+          "oklch(26% 0.01345 258.37)",
+          "oklch(38% 0.01345 258.37)",
+          "oklch(49% 0.01345 258.37)",
+          "oklch(61% 0.01345 258.37)",
+          "oklch(72% 0.01345 258.37)",
+          "oklch(84% 0.01345 258.37)",
+          "oklch(95% 0.01345 258.37)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "text-light": {
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.02457 261.11)",
+          "oklch(26% 0.02457 261.11)",
+          "oklch(38% 0.02457 261.11)",
+          "oklch(49% 0.02457 261.11)",
+          "oklch(61% 0.02457 261.11)",
+          "oklch(72% 0.02457 261.11)",
+          "oklch(84% 0.02457 261.11)",
+          "oklch(95% 0.02457 261.11)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      },
+      "text-dark": {
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.00624 255.48)",
+          "oklch(26% 0.00624 255.48)",
+          "oklch(38% 0.00624 255.48)",
+          "oklch(49% 0.00624 255.48)",
+          "oklch(61% 0.00624 255.48)",
+          "oklch(72% 0.00624 255.48)",
+          "oklch(84% 0.00624 255.48)",
+          "oklch(95% 0.00624 255.48)"
+        ],
+        "rampPurpose": "Synthesized inspection swatches; not implemented palette tokens."
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Primary playback action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "首页重点推荐的主要播放操作。",
+      "html": "<button class=\"ds-primary\">播放全部</button>",
+      "css": ".ds-primary { background: var(--color-action-bg); color: #f8fafc; border: 0; border-radius: var(--radius-full); padding: 11px 22px; font-family: inherit; font-weight: 600; cursor: pointer; transition: background 150ms ease, transform 150ms ease; } .ds-primary:hover { background: var(--color-action-hover); } .ds-primary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; } .ds-primary:active { transform: scale(.98); } @media (prefers-reduced-motion: reduce) { .ds-primary { transition: none; } }"
+    },
+    {
+      "name": "Toolbar theme action",
+      "kind": "button",
+      "description": "工具栏中的圆形轻底色操作。",
+      "html": "<button class=\"ds-theme\" aria-label=\"切换主题\">主题</button>",
+      "css": ".ds-theme { width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--surface-content); color: var(--color-text); font: inherit; cursor: pointer; transition: transform 150ms ease; } .ds-theme:hover { color: var(--color-primary); } .ds-theme:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; } .ds-theme:active { transform: scale(.98); } @media (prefers-reduced-motion: reduce) { .ds-theme { transition: none; } }"
+    },
+    {
+      "name": "Desktop search",
+      "kind": "input",
+      "refersTo": "search",
+      "description": "顶部搜索的可聚焦胶囊。",
+      "html": "<label class=\"ds-search\"><input aria-label=\"搜索音乐\" placeholder=\"搜索音乐、歌手、歌单\"></label>",
+      "css": ".ds-search { display: flex; align-items: center; width: min(520px, 100%); height: 44px; padding: 0 16px; border-radius: var(--radius-full); background: var(--surface-content); color: var(--color-text-secondary); box-shadow: inset 0 1px 0 var(--glass-highlight); } .ds-search input { width: 100%; min-width: 0; background: transparent; color: inherit; border: 0; outline: none; font-family: inherit; font-size: 13px; caret-color: var(--color-primary); } .ds-search input::placeholder { color: var(--color-text-muted); } .ds-search:focus-within { outline: 2px solid var(--color-primary); outline-offset: 2px; }"
+    },
+    {
+      "name": "Labelled navigation",
+      "kind": "nav",
+      "refersTo": "navigation-item",
+      "description": "保留中文标签，以主题浅底标识当前页。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主导航\"><a class=\"ds-nav-item ds-current\" href=\"#home\" aria-current=\"page\">推荐音乐</a><a class=\"ds-nav-item\" href=\"#daily\">每日推荐</a></nav>",
+      "css": ".ds-nav { display: grid; gap: 8px; } .ds-nav-item { display: block; padding: 13px 16px; border-radius: 14px; color: var(--color-text-secondary); font-size: 14px; font-weight: 580; text-decoration: none; transition: background-color 180ms, color 180ms, transform 180ms; } .ds-nav-item:hover { background: var(--color-secondary-bg-transparent); color: var(--color-text); transform: translateX(2px); } .ds-nav-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; } .ds-nav-item.ds-current { color: var(--color-accent-ink); background: var(--color-primary-bg); box-shadow: inset 0 1px 0 var(--glass-highlight); } @media (prefers-reduced-motion: reduce) { .ds-nav-item { transition: none; } }"
+    },
+    {
+      "name": "Page tabs",
+      "kind": "chip",
+      "refersTo": "tab",
+      "description": "页内横向标签的选中与默认状态。",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab ds-selected\" aria-pressed=\"true\">喜欢的歌曲</button><button class=\"ds-tab\" aria-pressed=\"false\">我的歌单</button></div>",
+      "css": ".ds-tabs { display: flex; gap: 6px; } .ds-tab { border: 0; border-radius: var(--radius-full); padding: 9px 18px; color: var(--color-text-secondary); background: transparent; font: inherit; font-size: 13px; cursor: pointer; } .ds-tab:hover { color: var(--color-text); background: var(--color-secondary-bg-transparent); } .ds-tab.ds-selected { background: var(--color-primary-bg); color: var(--color-accent-ink); } .ds-tab:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; } .ds-tab:active { transform: scale(.98); }"
+    },
+    {
+      "name": "Track content container",
+      "kind": "card",
+      "description": "轻底色曲目容器；无独立折射。",
+      "html": "<section class=\"ds-track-list\" aria-label=\"曲目列表\"><button class=\"ds-track\"><strong>曲目名称</strong><span>歌手</span></button></section>",
+      "css": ".ds-track-list { background: var(--surface-content); border-radius: 20px; padding: 8px; } .ds-track { display: flex; justify-content: space-between; gap: 16px; width: 100%; padding: 12px; border: 0; border-radius: 12px; background: transparent; color: var(--color-text); font: inherit; text-align: left; cursor: pointer; } .ds-track span { color: var(--color-text-secondary); } .ds-track:hover { background: var(--color-secondary-bg-transparent); } .ds-track:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }"
+    },
+    {
+      "name": "Glass control material",
+      "kind": "custom",
+      "refersTo": "player",
+      "description": "静态磨砂回退预览；运行时 SVG 折射由 GlassSurface 注入。",
+      "html": "<div class=\"ds-glass\"><span class=\"ds-optics\" aria-hidden=\"true\"></span><span>共享播放器 · 控制层</span></div>",
+      "css": ".ds-glass { position: relative; isolation: isolate; display: flex; align-items: center; height: 88px; padding: 12px 24px; color: var(--color-text); border: 1px solid var(--glass-border); border-radius: var(--radius-glass); box-shadow: var(--shadow-glass), inset 0 1px 0 var(--glass-highlight); } .ds-optics { position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--glass-solid); pointer-events: none; } @supports (backdrop-filter: blur(1px)) { .ds-optics { background: var(--glass-tint); backdrop-filter: blur(22px) saturate(155%); } } @media (prefers-reduced-transparency: reduce) { .ds-optics { background: var(--glass-solid); backdrop-filter: none; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "封面是内容主体，液态玻璃是悬浮控制层",
+    "overview": "听潮面向桌面浏览器和 Electron。真实封面、曲目与歌词承担内容表达；导航、共享播放器和任务浮层采用通透、有边缘折射的控制材质。该实现是 Apple Liquid Glass 的网页近似，不代表 Apple 原生材质或官方 CSS 包。\n\n银灰浅色与石墨深色提供稳定底色，用户原有强调色提供操作识别。默认背景保持冷调，登录后仅跟随当前播放曲目的封面；新图加载完成后才交叉淡入。已确认的设计参数为 DESIGN_VARIANCE 7、MOTION_INTENSITY 6、VISUAL_DENSITY 4。",
+    "keyCharacteristics": [
+      "真实封面主导内容，玻璃用于悬浮控制和任务浮层。",
+      "带文字的左侧导航、顶部搜索和账户、底部共享播放器形成稳定桌面框架。",
+      "系统字体、克制的文字层级、圆角封面与胶囊操作。",
+      "折射层与前景文字分离，并提供磨砂、实体及减少动态效果的降级。"
+    ],
+    "rules": [
+      {
+        "name": "The Readable Accent Rule.",
+        "body": "主要实色操作使用 action-bg 和 action-text；选中导航、页内标签和曲目列表的活动曲目使用 accent-ink；队列当前曲名采用正文色，以主题选中底色识别当前项。不要直接把所有主题色当作浅底小字或白字按钮的背景。",
+        "section": "colors"
+      },
+      {
+        "name": "The Clear Foreground Rule.",
+        "body": "折射和模糊只作用于 GlassSurface 的独立光学层，文字与图标保持清晰。公共祖先不要添加会阻断后景采样的 opacity 或 filter。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** 让真实封面承担内容表达，把液态玻璃用于悬浮控制和任务浮层。",
+      "**Do** 使用最终语义变量和现有四个主题色，保留深浅外观及用户偏好。",
+      "**Do** 保持键盘焦点清晰，使焦点进入时也能看到卡片播放、曲目操作和队列移除入口。",
+      "**Do** 在减少透明度时关闭折射、隐藏封面氛围并使用实体表面，在减少动态效果时关闭追光、过渡和进场动画。",
+      "**Do** 将模拟接口、静音音频和渲染检查与真人登录、听音及云端写入验收分开报告。"
+    ],
+    "donts": [
+      "**Don't** 把网页近似称为 Apple 官方原生 Liquid Glass。",
+      "**Don't** 为每个内容卡片嵌套独立玻璃滤镜，或让前景文字参与折射。",
+      "**Don't** 重排首页后续推荐，或在个人中心恢复双侧栏。",
+      "**Don't** 把切页、打开详情或封面加载与自动播放绑定。",
+      "**Don't** 因视觉重设计修改账号、播放、缓存和持久化格式等既有业务契约。"
+    ]
+  }
+}

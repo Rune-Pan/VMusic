@@ -1,11 +1,26 @@
 ﻿<script setup>
-  import { ref, computed, watch } from 'vue'
+  import { ref, computed, watch, onUnmounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
-  import { Music, Search, LogOut, User, Sun, Moon, Monitor } from '@lucide/vue'
+  import {
+    Music,
+    Search,
+    LogOut,
+    User,
+    Sun,
+    Moon,
+    Monitor,
+    X,
+    CalendarDays,
+    ChartNoAxesColumnIncreasing
+  } from '@/components/icons'
+  import BrandMark from '@/components/BrandMark.vue'
+  import GlassSurface from '@/components/GlassSurface.vue'
   import { useUserStore } from '@/stores/user'
   import { useMusicStore } from '@/stores/music'
   import { useUiStore } from '@/stores/ui'
   import { useTheme } from '@/composables/useTheme'
+  import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
+  import { cancelPageScroll, getPageScrollContainer } from '@/utils/pageScroll'
 
   const router = useRouter()
   const route = useRoute()
@@ -13,6 +28,76 @@
   const musicStore = useMusicStore()
   const uiStore = useUiStore()
   const { theme, toggleTheme } = useTheme()
+  const { isAutoHideActive, triggerWidth, hideDelay } = useSidebarAutoHide()
+  const sidebarRegion = ref(null)
+  const expanded = ref(false)
+  const keyboardWithin = ref(false)
+  const hoveredRegions = new Set()
+  let showTimer = null
+  let hideTimer = null
+
+  function clearTimers() {
+    clearTimeout(showTimer)
+    clearTimeout(hideTimer)
+    showTimer = hideTimer = null
+  }
+
+  function scheduleHide() {
+    clearTimers()
+    if (!isAutoHideActive.value || hoveredRegions.size || keyboardWithin.value) return
+    hideTimer = setTimeout(() => {
+      expanded.value = false
+      hideTimer = null
+    }, hideDelay.value)
+  }
+
+  function enterRegion(region, event) {
+    if (event.pointerType && !['mouse', 'pen'].includes(event.pointerType)) return
+    hoveredRegions.add(region)
+    clearTimeout(hideTimer)
+    hideTimer = null
+    if (!isAutoHideActive.value || expanded.value || showTimer !== null) return
+    showTimer = setTimeout(() => {
+      expanded.value = true
+      showTimer = null
+    }, 100)
+  }
+
+  function leaveRegion(region) {
+    hoveredRegions.delete(region)
+    if (!hoveredRegions.size) scheduleHide()
+  }
+
+  function onSidebarFocusIn(event) {
+    clearTimers()
+    expanded.value = true
+    keyboardWithin.value = event.target.matches(':focus-visible')
+    if (!keyboardWithin.value) scheduleHide()
+  }
+
+  function onSidebarFocusOut(event) {
+    if (sidebarRegion.value?.contains(event.relatedTarget)) return
+    keyboardWithin.value = false
+    scheduleHide()
+  }
+
+  function onSidebarKeydown() {
+    clearTimers()
+    keyboardWithin.value = true
+    expanded.value = true
+  }
+
+  watch(isAutoHideActive, () => {
+    clearTimers()
+    hoveredRegions.clear()
+    if (sidebarRegion.value?.matches(':hover')) hoveredRegions.add('panel')
+    keyboardWithin.value = !!sidebarRegion.value?.querySelector(':focus-visible')
+    expanded.value = !!(hoveredRegions.size || keyboardWithin.value)
+  }, { flush: 'post' })
+  watch(hideDelay, () => {
+    if (hideTimer !== null) scheduleHide()
+  })
+  onUnmounted(clearTimers)
 
   const themeLabel = computed(() => {
     if (theme.value === 'auto') return '切换到深色模式'
@@ -20,12 +105,24 @@
     return '跟随系统主题'
   })
 
+  const navigation = [
+    { path: '/', name: 'home', label: '首页', icon: Music },
+    {
+      path: '/daily-recommend',
+      name: 'daily-recommend',
+      label: '每日推荐',
+      icon: CalendarDays
+    },
+    {
+      path: '/toplist',
+      name: 'toplist',
+      label: '排行榜',
+      icon: ChartNoAxesColumnIncreasing
+    },
+    { path: '/profile', name: 'profile', label: '个人中心', icon: User }
+  ]
   const searchKeyword = ref('')
   const showUserMenu = ref(false)
-  const isHome = computed(() => route.name === 'home')
-  const isProfile = computed(() => route.name === 'profile')
-  const isDailyRecommend = computed(() => route.name === 'daily-recommend')
-  const isToplist = computed(() => route.name === 'toplist')
 
   // store 清空时同步本地搜索框（如点击搜索结果播放后 SearchResultsOverlay 调 clearSearch）
   watch(
@@ -67,244 +164,333 @@
   function goToHome() {
     router.push({ name: 'home' })
   }
+
+  function onNavigationKeydown(event) {
+    if (
+      event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+      event.target.closest('input, textarea, select, [contenteditable="true"]')
+    ) return
+    const container = getPageScrollContainer()
+    if (!container) return
+    const step = container.clientHeight * 0.875
+    const positions = {
+      PageDown: container.scrollTop + step,
+      PageUp: container.scrollTop - step,
+      Home: 0,
+      End: container.scrollHeight
+    }
+    if (!(event.key in positions)) return
+    event.preventDefault()
+    cancelPageScroll()
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    container.scrollTo({ top: positions[event.key], behavior: reduce ? 'auto' : 'smooth' })
+  }
 </script>
 
 <template>
-  <nav class="navbar glass">
-    <div class="nav-left">
-      <div class="logo" @click="goToHome">
-        <Music :size="24" color="var(--color-primary)" />
-        <span class="logo-text">听潮</span>
-      </div>
+  <div
+    class="desktop-navigation"
+    :class="{
+      'auto-hide': isAutoHideActive,
+      'sidebar-open': expanded,
+      'sidebar-keyboard': keyboardWithin
+    }"
+    :style="{ '--sidebar-trigger-width': `${triggerWidth}px` }"
+    @keydown="onNavigationKeydown"
+  >
+    <div
+      v-if="isAutoHideActive"
+      class="sidebar-trigger"
+      aria-hidden="true"
+      @pointerenter="enterRegion('trigger', $event)"
+      @pointerleave="leaveRegion('trigger')"
+    ></div>
+    <div
+      ref="sidebarRegion"
+      class="sidebar-region"
+      @pointerenter="enterRegion('panel', $event)"
+      @pointerleave="leaveRegion('panel')"
+      @pointerdown="keyboardWithin = false"
+      @focusin="onSidebarFocusIn"
+      @focusout="onSidebarFocusOut"
+      @keydown="onSidebarKeydown"
+    >
+      <GlassSurface as="aside" class="sidebar-navigation" aria-label="主导航">
+        <button class="brand-home" aria-label="听潮首页" @click="goToHome">
+          <span class="brand-mark"><BrandMark :size="22" /></span>
+          <span class="brand-wordmark">听潮</span>
+        </button>
+        <nav class="primary-navigation">
+          <router-link
+            v-for="item in navigation"
+            :key="item.name"
+            :to="item.path"
+            class="nav-link"
+            :class="{ active: route.name === item.name }"
+            :aria-current="route.name === item.name ? 'page' : undefined"
+          >
+            <component :is="item.icon" :size="19" />
+            <span>{{ item.label }}</span>
+          </router-link>
+        </nav>
+      </GlassSurface>
     </div>
-    <div class="nav-center">
-      <router-link to="/" class="nav-link" :class="{ active: isHome }">
-        首页
-      </router-link>
-      <router-link
-        to="/daily-recommend"
-        class="nav-link"
-        :class="{ active: isDailyRecommend }"
-      >
-        每日推荐
-      </router-link>
-      <router-link
-        to="/toplist"
-        class="nav-link"
-        :class="{ active: isToplist }"
-      >
-        排行榜
-      </router-link>
-      <router-link
-        to="/profile"
-        class="nav-link"
-        :class="{ active: isProfile }"
-      >
-        个人中心
-      </router-link>
-    </div>
-    <div class="nav-right">
-      <button
-        class="theme-toggle"
-        type="button"
-        :aria-label="themeLabel"
-        @click="toggleTheme"
-      >
-        <Monitor v-if="theme === 'auto'" :size="18" />
-        <Sun v-else-if="theme === 'dark'" :size="18" />
-        <Moon v-else :size="18" />
-      </button>
-      <div class="search-box">
-        <Search :size="16" color="var(--color-text-muted)" />
+    <header class="desktop-toolbar">
+      <form class="search-box" role="search" @submit.prevent="doSearch">
+        <Search :size="19" aria-hidden="true" />
         <input
           v-model="searchKeyword"
           type="search"
           maxlength="100"
-          placeholder="搜索歌曲、歌手，回车搜索"
+          aria-label="搜索音乐"
+          placeholder="搜索歌曲、歌手、歌单或专辑"
           @search="doSearch"
         />
-        <button v-if="searchKeyword" class="clear-btn" @click="clearSearch">
-          ×
+        <button
+          v-if="searchKeyword"
+          type="button"
+          class="clear-btn"
+          aria-label="清空搜索"
+          @click="clearSearch"
+        >
+          <X :size="16" />
         </button>
-      </div>
-      <div class="user-menu-wrapper">
-        <button class="avatar-btn" @click="showUserMenu = !showUserMenu">
-          <img :src="userStore.avatarUrl" alt="avatar" class="avatar" />
+        <span v-else class="search-key" aria-hidden="true">回车搜索</span>
+      </form>
+      <div class="toolbar-actions">
+        <button
+          class="theme-toggle"
+          type="button"
+          :aria-label="themeLabel"
+          @click="toggleTheme"
+        >
+          <Monitor v-if="theme === 'auto'" :size="19" />
+          <Sun v-else-if="theme === 'dark'" :size="19" />
+          <Moon v-else :size="19" />
         </button>
-        <transition name="fade">
-          <div v-if="showUserMenu" class="user-menu" @click.stop>
-            <div class="menu-item" @click="goToProfile">
-              <User :size="16" />
-              <span>个人中心</span>
+        <div class="user-menu-wrapper" data-dialog-return>
+          <button
+            class="avatar-btn"
+            aria-label="账户菜单"
+            :aria-expanded="showUserMenu"
+            @click="showUserMenu = !showUserMenu"
+          >
+            <img :src="userStore.avatarUrl" alt="我的头像" class="avatar" />
+          </button>
+          <transition name="fade">
+            <div v-if="showUserMenu" class="user-menu" @click.stop>
+              <button class="menu-item" @click="goToProfile">
+                <User :size="16" />
+                <span>个人中心</span>
+              </button>
+              <button class="menu-item logout" @click="logout">
+                <LogOut :size="16" />
+                <span>退出登录</span>
+              </button>
             </div>
-            <div class="menu-divider"></div>
-            <div class="menu-item logout" @click="logout">
-              <LogOut :size="16" />
-              <span>退出登录</span>
-            </div>
-          </div>
-        </transition>
+          </transition>
+        </div>
       </div>
-    </div>
-  </nav>
+    </header>
+  </div>
 </template>
 
 <style scoped>
-  .navbar {
+  .sidebar-region {
     position: fixed;
-    top: 0;
+    top: 50%;
     left: 0;
-    right: 0;
+    width: calc(var(--sidebar-width) + var(--shell-gap));
+    padding-left: var(--shell-gap);
+    z-index: var(--z-navbar);
+    transform: translateY(-50%);
+    transition:
+      transform var(--transition-base),
+      opacity var(--transition-base);
+  }
+  .auto-hide:not(.sidebar-open) .sidebar-region {
+    transform: translate(-100%, -50%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sidebar-keyboard .sidebar-region {
+    transition: none;
+  }
+  .sidebar-trigger {
+    position: fixed;
+    top: calc(var(--navbar-height) + var(--shell-gap));
+    bottom: 0;
+    left: 0;
+    width: var(--sidebar-trigger-width);
+    z-index: var(--z-navbar);
+  }
+  .sidebar-navigation {
+    width: var(--sidebar-width);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border-radius: 24px;
+  }
+  .brand-home {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 36px;
+    padding: 0 8px;
+    border-radius: 16px;
+    text-align: left;
+  }
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    color: var(--color-primary);
+    background: var(--color-primary-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  .brand-wordmark {
+    font-size: 20px;
+    font-weight: 720;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+  .primary-navigation {
+    display: grid;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .nav-link {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    height: 44px;
+    padding: 0 10px;
+    border-radius: 14px;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    font-weight: 580;
+    transition:
+      background-color 180ms,
+      color 180ms,
+      transform 180ms;
+    white-space: nowrap;
+  }
+  .nav-link:hover {
+    background: var(--color-secondary-bg-transparent);
+    color: var(--color-text);
+    transform: translateX(2px);
+  }
+  .nav-link.active {
+    color: var(--color-accent-ink);
+    background: var(--color-primary-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  .desktop-toolbar {
+    position: fixed;
+    top: var(--shell-gap);
+    left: var(--main-side-offset);
+    right: var(--scrollbar-size);
+    max-width: var(--content-max-width);
+    margin-inline: auto;
+    padding-inline: var(--content-inline-padding);
     height: var(--navbar-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 var(--spacing-xl);
-    background: var(--color-navbar-bg);
-    z-index: var(--z-navbar);
-    border-bottom: 1px solid var(--color-border-light);
-  }
-  .nav-left {
-    display: flex;
-    align-items: center;
-    flex: 1;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    margin-left: var(--spacing-sm);
-    cursor: pointer;
-  }
-  .logo-text {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--color-text);
-  }
-  .nav-center {
-    display: flex;
-    gap: var(--spacing-md);
-    flex: 1;
-    justify-content: center;
-  }
-  .nav-link {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: var(--radius-md);
-    transition: all var(--transition-fast);
-  }
-  .nav-link:hover {
-    color: var(--color-text);
-    background: var(--color-secondary-bg-hover);
-    text-decoration: none;
-  }
-  .nav-link.active {
-    color: var(--color-primary);
-  }
-  .nav-right {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    flex: 1;
-    justify-content: flex-end;
-  }
-  .theme-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
-    transition: all var(--transition-fast);
-  }
-  .theme-toggle:hover {
-    background: var(--color-secondary-bg-hover);
-    color: var(--color-text);
+    gap: 24px;
+    z-index: var(--z-sticky);
   }
   .search-box {
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
-    background: var(--color-secondary-bg);
+    gap: 12px;
+    width: min(520px, 76%);
+    height: 44px;
+    padding: 0 16px;
     border-radius: var(--radius-full);
-    padding: var(--spacing-xs) var(--spacing-md);
-    width: 240px;
-    transition: all var(--transition-fast);
+    background: var(--surface-content);
+    color: var(--color-text-secondary);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
   }
   .search-box input {
-    flex: 1;
+    width: 100%;
+    min-width: 0;
     font-size: 13px;
-    color: var(--color-text);
+  }
+  .search-box:focus-within {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  .search-box input:focus-visible {
     outline: none;
   }
-
-  /* 隐藏 type="search" 的原生清除按钮 */
-  .search-box input::-webkit-search-cancel-button {
-    display: none;
-  }
-
-  .search-box input::-moz-search-cancel-button {
-    display: none;
+  .search-key {
+    font-size: 10px;
+    white-space: nowrap;
   }
   .clear-btn {
-    font-size: 18px;
-    color: var(--color-text-muted);
-    padding: 0 4px;
+    font-size: 20px;
   }
-  .clear-btn:hover {
-    color: var(--color-text);
+  .toolbar-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+  }
+  .theme-toggle {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--surface-content);
+  }
+  .avatar-btn {
+    padding: 3px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+  }
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
   }
   .user-menu-wrapper {
     position: relative;
   }
-  .avatar-btn {
-    padding: 0;
-    border-radius: 50%;
-    overflow: hidden;
-  }
-  .avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-  .avatar:hover {
-    filter: brightness(0.85);
-  }
   .user-menu {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 12px);
     right: 0;
-    background: var(--color-card-bg);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-xl);
-    padding: var(--spacing-xs);
-    min-width: 160px;
-    border: 1px solid var(--color-border-light);
+    width: 170px;
+    padding: 8px;
+    background: var(--glass-solid);
+    border-radius: 16px;
+    box-shadow: var(--shadow-glass);
   }
   .menu-item {
     display: flex;
+    gap: 10px;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
-    font-size: 14px;
-    color: var(--color-text);
-    cursor: pointer;
+    padding: 11px 12px;
+    width: 100%;
+    text-align: left;
+    font-size: 13px;
+    border-radius: 10px;
   }
   .menu-item:hover {
     background: var(--color-secondary-bg-hover);
   }
-  .menu-item.logout:hover {
+  .logout {
     color: var(--color-error);
   }
-  .menu-divider {
-    height: 1px;
-    background: var(--color-border-light);
-    margin: var(--spacing-xs) 0;
+  @media (max-width: 1199px) {
+    .search-key {
+      display: none;
+    }
   }
 </style>

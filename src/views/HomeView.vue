@@ -1,6 +1,6 @@
 <script setup>
   import { onMounted } from 'vue'
-  import { Search } from '@lucide/vue'
+  import { Search } from '@/components/icons'
   import { useMusicStore } from '@/stores/music'
   import MusicCard from '@/components/MusicCard.vue'
   import CategoryFilter from '@/components/CategoryFilter.vue'
@@ -53,14 +53,20 @@
       </div>
 
       <!-- 推荐卡片网格 -->
-      <div v-else class="music-grid">
+      <div v-else class="home-collection">
         <MusicCard
-          v-for="item in musicStore.recommendList"
-          :key="item.id"
-          :item="item"
-          type="track"
-          v-memo="[item.id, item.al?.picUrl]"
+          :item="musicStore.recommendList[0]"
+          type="playlist"
+          featured
         />
+        <div v-if="musicStore.recommendList.length > 1" class="music-grid">
+          <MusicCard
+            v-for="item in musicStore.recommendList.slice(1)"
+            :key="item.id"
+            :item="item"
+            type="playlist"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -95,7 +101,7 @@
 
   .music-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--spacing-lg);
   }
 
@@ -105,7 +111,7 @@
 
   .loading-state {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--spacing-lg);
   }
 
@@ -157,5 +163,12 @@
   .empty-text {
     font-size: 15px;
     color: var(--color-text-muted);
+  }
+
+  @media (max-width: 1199px) {
+    .music-grid,
+    .loading-state {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
 </style>

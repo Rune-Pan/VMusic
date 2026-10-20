@@ -1,6 +1,7 @@
 <script setup>
+  import GlassSurface from '@/components/GlassSurface.vue'
   import { ref, watch } from 'vue'
-  import { X, Loader2, Music, Check } from '@lucide/vue'
+  import { X, Loader2, Music, Check } from '@/components/icons'
   import { userPlaylist } from '@/api/user'
   import { addTracksToPlaylist } from '@/api/playlist'
   import { useUserStore } from '@/stores/user'
@@ -91,7 +92,7 @@
 <template>
   <transition name="fade">
     <div v-if="visible" class="atp-overlay" @click="close">
-      <div class="atp-modal" @click.stop>
+      <GlassSurface class="atp-modal" modal label="添加到歌单" @click.stop>
         <div class="atp-header">
           <div class="atp-title">添加到歌单</div>
           <button class="close-btn" aria-label="关闭" @click="close">
@@ -114,6 +115,11 @@
                 :key="'local-' + pl.id"
                 class="atp-item"
                 :class="{ 'atp-item-added': isInPlaylist(pl) }"
+                role="button"
+                tabindex="0"
+                :aria-label="`添加到${pl.name}`"
+                @keydown.enter.stop="addToPlaylist(pl, true)"
+                @keydown.space.stop.prevent="addToPlaylist(pl, true)"
                 @click="addToPlaylist(pl, true)"
               >
                 <img
@@ -141,6 +147,11 @@
                 v-for="pl in serverPlaylists"
                 :key="'server-' + pl.id"
                 class="atp-item"
+                role="button"
+                tabindex="0"
+                :aria-label="`添加到${pl.name}`"
+                @keydown.enter.stop="addToPlaylist(pl, false)"
+                @keydown.space.stop.prevent="addToPlaylist(pl, false)"
                 @click="addToPlaylist(pl, false)"
               >
                 <img
@@ -173,7 +184,7 @@
             </div>
           </template>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   </transition>
 </template>
