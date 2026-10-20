@@ -1,7 +1,7 @@
 ﻿<script setup>
   import GlassSurface from '@/components/GlassSurface.vue'
   import { useEscClose } from '@/composables/useEscClose'
-  import { ref, reactive, computed, onMounted, watch } from 'vue'
+  import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
   import {
     Plus,
     Music,
@@ -40,7 +40,7 @@
     eventToShortcut
   } from '@/composables/useShortcuts'
   import { usePreload, PRELOAD_ITEMS } from '@/composables/usePreload'
-  import { scrollPageTo } from '@/utils/pageScroll'
+  import { getPageScrollContainer, scrollPageTo } from '@/utils/pageScroll'
   import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
 
   const userStore = useUserStore()
@@ -92,6 +92,12 @@
   // 录制按键：在按钮上监听 keydown
   function onRecordKeydown(e, actionId) {
     if (recordingId.value !== actionId) return
+    if (e.key === 'Tab') {
+      cancelRecording()
+      return
+    }
+    e.preventDefault()
+    e.stopPropagation()
     // ESC 取消录制（不录制为键位）
     if (e.key === 'Escape') {
       cancelRecording()
@@ -135,6 +141,50 @@
     setEnabled: setPreloadEnabled,
     setItem: setPreloadItem
   } = usePreload()
+
+  const settingsSections = [
+    { key: 'appearance', label: '外观' },
+    { key: 'playback', label: '播放与歌词' },
+    { key: 'shortcuts', label: '快捷键' },
+    { key: 'preload', label: '预加载' }
+  ]
+  const savedSettingsSection = localStorage.getItem(STORAGE_KEYS.SETTINGS_SECTION)
+  const activeSettingsSection = ref(
+    settingsSections.some(section => section.key === savedSettingsSection)
+      ? savedSettingsSection : 'appearance'
+  )
+  const settingsForm = ref(null)
+  const settingsTabs = ref(null)
+
+  async function selectSettingsSection(key) {
+    const container = getPageScrollContainer()
+    const top = container && settingsForm.value
+      ? Math.min(container.scrollTop, container.scrollTop +
+        settingsForm.value.getBoundingClientRect().top - container.getBoundingClientRect().top)
+      : null
+    cancelRecording()
+    activeSettingsSection.value = key
+    localStorage.setItem(STORAGE_KEYS.SETTINGS_SECTION, key)
+    await nextTick()
+    if (top !== null) scrollPageTo({ top: Math.max(0, top), behavior: 'instant' })
+    settingsTabs.value?.querySelector(`[data-settings-section="${key}"]`)?.focus({ preventScroll: true })
+  }
+
+  function onSettingsTabKeydown(event, index) {
+    if (event.altKey || event.ctrlKey || event.metaKey) return
+    let nextIndex
+    const last = settingsSections.length - 1
+    switch (event.key) {
+      case 'ArrowRight': nextIndex = (index + 1) % settingsSections.length; break
+      case 'ArrowLeft': nextIndex = (index + last) % settingsSections.length; break
+      case 'Home': nextIndex = 0; break
+      case 'End': nextIndex = last; break
+      default: return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    selectSettingsSection(settingsSections[nextIndex].key)
+  }
 
   const activeMenu = ref('liked')
   const showPlaylistForm = ref(false)
@@ -221,6 +271,7 @@
   }
 
   function selectMenu(key) {
+    cancelRecording()
     activeMenu.value = key
     persistActiveMenu()
     // 滚动到页面顶部
@@ -549,50 +600,75 @@
           <div class="section-header">
             <h1 class="section-title">个人设置</h1>
           </div>
-          <div class="settings-form">
-            <div class="settings-group-title">外观</div>
-            <div class="form-group">
-              <label class="form-label">主题</label>
-              <div class="quality-segmented" role="group" aria-label="主题选择">
-                <button
-                  v-for="opt in THEME_OPTIONS"
-                  :key="opt.value"
-                  type="button"
-                  class="quality-tab"
-                  :class="{ active: theme === opt.value }"
-                  :aria-pressed="theme === opt.value"
-                  @click="changeTheme(opt.value)"
-                >
-                  {{ opt.short }}
-                </button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">主题色</label>
-              <div
-                class="theme-color-swatches"
-                role="group"
-                aria-label="主题色选择"
+          <div ref="settingsForm" class="settings-form">
+            <div ref="settingsTabs" class="settings-tabs" role="tablist" aria-label="设置分类">
+              <button
+                v-for="(section, index) in settingsSections"
+                :id="`settings-tab-${section.key}`"
+                :key="section.key"
+                type="button"
+                role="tab"
+                class="settings-tab"
+                :data-settings-section="section.key"
+                :aria-selected="activeSettingsSection === section.key"
+                :aria-controls="`settings-panel-${section.key}`"
+                :tabindex="activeSettingsSection === section.key ? 0 : -1"
+                @click="selectSettingsSection(section.key)"
+                @keydown="onSettingsTabKeydown($event, index)"
               >
-                <button
-                  v-for="opt in THEME_COLOR_OPTIONS"
-                  :key="opt.value"
-                  type="button"
-                  class="theme-color-swatch"
-                  :class="{ active: themeColor === opt.value }"
-                  :style="{ '--swatch-color': opt.swatch }"
-                  :aria-pressed="themeColor === opt.value"
-                  :aria-label="opt.label"
-                  @click="changeThemeColor(opt.value)"
-                >
-                  <span class="swatch-dot"></span>
-                </button>
-              </div>
+                {{ section.label }}
+              </button>
             </div>
-            <div class="form-group sidebar-settings">
-              <div class="form-label">左侧导航</div>
-              <div class="toggle-row">
-                <label class="toggle-label" for="sidebar-auto-hide">自动隐藏导航</label>
+            <section
+              id="settings-panel-appearance"
+              v-show="activeSettingsSection === 'appearance'"
+              class="settings-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-appearance"
+            >
+              <div class="form-group">
+                <label class="form-label">主题</label>
+                <div class="quality-segmented" role="group" aria-label="主题选择">
+                  <button
+                    v-for="opt in THEME_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    class="quality-tab"
+                    :class="{ active: theme === opt.value }"
+                    :aria-pressed="theme === opt.value"
+                    @click="changeTheme(opt.value)"
+                  >
+                    {{ opt.short }}
+                  </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">主题色</label>
+                <div
+                  class="theme-color-swatches"
+                  role="group"
+                  aria-label="主题色选择"
+                >
+                  <button
+                    v-for="opt in THEME_COLOR_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    class="theme-color-swatch"
+                    :class="{ active: themeColor === opt.value }"
+                    :style="{ '--swatch-color': opt.swatch }"
+                    :aria-pressed="themeColor === opt.value"
+                    :aria-label="opt.label"
+                    @click="changeThemeColor(opt.value)"
+                  >
+                    <span class="swatch-dot"></span>
+                  </button>
+                </div>
+              </div>
+              <div class="form-group sidebar-settings">
+                <div class="setting-copy">
+                  <label class="form-label" for="sidebar-auto-hide">自动隐藏导航</label>
+                  <p class="sidebar-settings-help">鼠标靠近页面左边缘时展开，离开后自动收起；触摸设备保持常显。</p>
+                </div>
                 <label class="toggle-switch">
                   <input
                     id="sidebar-auto-hide"
@@ -602,202 +678,226 @@
                   />
                   <span class="toggle-slider"></span>
                 </label>
-              </div>
-              <p class="sidebar-settings-help">鼠标靠近页面左边缘时展开，离开后自动收起；触摸设备保持常显。</p>
-              <template v-if="sidebarAutoHide">
-                <label class="sidebar-range-label" for="sidebar-trigger-width">
-                  触发区域宽度 <output for="sidebar-trigger-width">{{ sidebarTriggerWidth }} px</output>
-                </label>
-                <input
-                  id="sidebar-trigger-width"
-                  class="sidebar-range"
-                  type="range"
-                  min="4" max="48" step="4"
-                  :value="sidebarTriggerWidth"
-                  @input="setSidebarTriggerWidth(Number($event.target.value))"
-                />
-                <label class="sidebar-range-label" for="sidebar-hide-delay">
-                  隐藏延时 <output for="sidebar-hide-delay">{{ sidebarHideDelay }} 毫秒</output>
-                </label>
-                <input
-                  id="sidebar-hide-delay"
-                  class="sidebar-range"
-                  type="range"
-                  min="0" max="1500" step="50"
-                  :value="sidebarHideDelay"
-                  @input="setSidebarHideDelay(Number($event.target.value))"
-                />
-              </template>
-            </div>
-            <div v-if="userStore.userInfo.vipType !== 0" class="form-group">
-              <div class="toggle-row">
-                <span class="toggle-label">显示黑胶VIP角标</span>
-                <label class="toggle-switch">
+                <div v-if="sidebarAutoHide" class="settings-subsection">
+                  <label class="sidebar-range-label" for="sidebar-trigger-width">
+                    触发区域宽度 <output for="sidebar-trigger-width">{{ sidebarTriggerWidth }} px</output>
+                  </label>
                   <input
-                    type="checkbox"
-                    :checked="userStore.userInfo.showVipBadge"
-                    @change="userStore.setShowVipBadge($event.target.checked)"
+                    id="sidebar-trigger-width"
+                    class="sidebar-range"
+                    type="range"
+                    min="4" max="48" step="4"
+                    :value="sidebarTriggerWidth"
+                    @input="setSidebarTriggerWidth(Number($event.target.value))"
                   />
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-            <div class="settings-group-title">播放</div>
-            <div class="form-group">
-              <label class="form-label">音质</label>
-              <div class="quality-segmented" role="group" aria-label="音质选择">
-                <button
-                  v-for="opt in MUSIC_QUALITY_OPTIONS"
-                  :key="opt.value"
-                  type="button"
-                  class="quality-tab"
-                  :class="{ active: musicQuality === opt.value }"
-                  :aria-pressed="musicQuality === opt.value"
-                  @click="changeMusicQuality(opt.value)"
-                >
-                  {{ opt.short }}
-                </button>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">歌词字号</label>
-              <div
-                class="quality-segmented"
-                role="group"
-                aria-label="歌词字号选择"
-              >
-                <button
-                  v-for="opt in LYRIC_FONT_SIZE_OPTIONS"
-                  :key="opt.value"
-                  type="button"
-                  class="quality-tab"
-                  :class="{ active: lyricFontSize === opt.value }"
-                  :aria-pressed="lyricFontSize === opt.value"
-                  @click="changeLyricFontSize(opt.value)"
-                >
-                  {{ opt.short }}
-                </button>
-              </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <span class="toggle-label">显示歌词翻译</span>
-                <label class="toggle-switch">
+                  <label class="sidebar-range-label" for="sidebar-hide-delay">
+                    隐藏延时 <output for="sidebar-hide-delay">{{ sidebarHideDelay }} 毫秒</output>
+                  </label>
                   <input
-                    type="checkbox"
-                    :checked="showLyricsTranslation"
-                    @change="setShowLyricsTranslation($event.target.checked)"
+                    id="sidebar-hide-delay"
+                    class="sidebar-range"
+                    type="range"
+                    min="0" max="1500" step="50"
+                    :value="sidebarHideDelay"
+                    @input="setSidebarHideDelay(Number($event.target.value))"
                   />
-                  <span class="toggle-slider"></span>
-                </label>
+                </div>
               </div>
-            </div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <span class="toggle-label">显示歌词时间</span>
-                <label class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    :checked="showLyricsTime"
-                    @change="setShowLyricsTime($event.target.checked)"
-                  />
-                  <span class="toggle-slider"></span>
-                </label>
+              <div v-if="userStore.userInfo.vipType !== 0" class="form-group">
+                <div class="toggle-row">
+                  <label class="toggle-label" for="settings-vip-badge">显示黑胶VIP角标</label>
+                  <label class="toggle-switch">
+                    <input
+                      id="settings-vip-badge"
+                      type="checkbox"
+                      :checked="userStore.userInfo.showVipBadge"
+                      @change="userStore.setShowVipBadge($event.target.checked)"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
               </div>
-            </div>
-
-            <!-- 快捷键 -->
-            <div class="settings-group-title">快捷键</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <span class="toggle-label">启用快捷键</span>
-                <label class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    :checked="shortcutsEnabled"
-                    @change="setShortcutsEnabled($event.target.checked)"
-                  />
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-            <div v-if="shortcutsEnabled" class="shortcuts-section">
-              <div class="shortcuts-header">
-                <button class="reset-all-btn" @click="onResetAllShortcuts">
-                  重置全部
-                </button>
-              </div>
-              <div
-                v-for="action in SHORTCUT_ACTIONS"
-                :key="action.id"
-                class="shortcut-row"
-              >
-                <span class="shortcut-label">{{ action.label }}</span>
-                <div class="shortcut-controls">
-                  <span
-                    v-if="conflictMsg && recordingId === action.id"
-                    class="shortcut-conflict"
-                  >
-                    {{ conflictMsg }}
-                  </span>
+            </section>
+            <section
+              id="settings-panel-playback"
+              v-show="activeSettingsSection === 'playback'"
+              class="settings-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-playback"
+            >
+              <p class="settings-panel-note">音质在下次播放时生效；歌词设置在重新进入播放页后生效。</p>
+              <div class="form-group">
+                <label class="form-label">音质</label>
+                <div class="quality-segmented" role="group" aria-label="音质选择">
                   <button
-                    class="shortcut-key"
-                    :class="{ recording: recordingId === action.id }"
-                    @keydown.prevent="onRecordKeydown($event, action.id)"
-                    @click="startRecording(action.id)"
-                    @blur="cancelRecording"
-                    tabindex="0"
+                    v-for="opt in MUSIC_QUALITY_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    class="quality-tab"
+                    :class="{ active: musicQuality === opt.value }"
+                    :aria-pressed="musicQuality === opt.value"
+                    @click="changeMusicQuality(opt.value)"
                   >
-                    {{
-                      recordingId === action.id
-                        ? '请按下快捷键...'
-                        : formatShortcut(shortcuts[action.id])
-                    }}
-                  </button>
-                  <button
-                    class="shortcut-reset"
-                    aria-label="重置"
-                    @click="onResetShortcut(action.id)"
-                  >
-                    重置
+                    {{ opt.short }}
                   </button>
                 </div>
               </div>
-            </div>
-
-            <!-- 预加载 -->
-            <div class="settings-group-title">预加载</div>
-            <div class="form-group">
-              <div class="toggle-row">
-                <span class="toggle-label">启用预加载</span>
-                <label class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    :checked="preloadConfig.enabled"
-                    @change="setPreloadEnabled($event.target.checked)"
-                  />
-                  <span class="toggle-slider"></span>
-                </label>
+              <div class="form-group">
+                <label class="form-label">歌词字号</label>
+                <div
+                  class="quality-segmented"
+                  role="group"
+                  aria-label="歌词字号选择"
+                >
+                  <button
+                    v-for="opt in LYRIC_FONT_SIZE_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    class="quality-tab"
+                    :class="{ active: lyricFontSize === opt.value }"
+                    :aria-pressed="lyricFontSize === opt.value"
+                    @click="changeLyricFontSize(opt.value)"
+                  >
+                    {{ opt.short }}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div v-if="preloadConfig.enabled" class="shortcuts-section">
-              <div
-                v-for="item in PRELOAD_ITEMS"
-                :key="item.key"
-                class="toggle-row"
-                style="padding: var(--spacing-xs) 0"
-              >
-                <span class="shortcut-label">{{ item.label }}</span>
-                <label class="toggle-switch">
-                  <input
-                    type="checkbox"
-                    :checked="preloadConfig.items[item.key]"
-                    @change="setPreloadItem(item.key, $event.target.checked)"
-                  />
-                  <span class="toggle-slider"></span>
-                </label>
+              <div class="form-group">
+                <div class="toggle-row">
+                  <label class="toggle-label" for="settings-lyrics-translation">显示歌词翻译</label>
+                  <label class="toggle-switch">
+                    <input
+                      id="settings-lyrics-translation"
+                      type="checkbox"
+                      :checked="showLyricsTranslation"
+                      @change="setShowLyricsTranslation($event.target.checked)"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
               </div>
-            </div>
+              <div class="form-group">
+                <div class="toggle-row">
+                  <label class="toggle-label" for="settings-lyrics-time">显示歌词时间</label>
+                  <label class="toggle-switch">
+                    <input
+                      id="settings-lyrics-time"
+                      type="checkbox"
+                      :checked="showLyricsTime"
+                      @change="setShowLyricsTime($event.target.checked)"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </section>
+            <section
+              id="settings-panel-shortcuts"
+              v-show="activeSettingsSection === 'shortcuts'"
+              class="settings-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-shortcuts"
+            >
+              <div class="form-group">
+                <div class="toggle-row">
+                  <label class="toggle-label" for="settings-shortcuts-enabled">启用快捷键</label>
+                  <label class="toggle-switch">
+                    <input
+                      id="settings-shortcuts-enabled"
+                      type="checkbox"
+                      :checked="shortcutsEnabled"
+                      @change="setShortcutsEnabled($event.target.checked)"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div v-if="shortcutsEnabled" class="shortcuts-section">
+                <div class="shortcuts-header">
+                  <button class="reset-all-btn" @click="onResetAllShortcuts">
+                    重置全部
+                  </button>
+                </div>
+                <div
+                  v-for="action in SHORTCUT_ACTIONS"
+                  :key="action.id"
+                  class="shortcut-row"
+                >
+                  <span class="shortcut-label">{{ action.label }}</span>
+                  <div class="shortcut-controls">
+                    <span
+                      v-if="conflictMsg && recordingId === action.id"
+                      class="shortcut-conflict"
+                    >
+                      {{ conflictMsg }}
+                    </span>
+                    <button
+                      class="shortcut-key"
+                      :aria-label="`修改${action.label}快捷键`"
+                      :class="{ recording: recordingId === action.id }"
+                      @keydown="onRecordKeydown($event, action.id)"
+                      @click="startRecording(action.id)"
+                      @blur="cancelRecording"
+                      tabindex="0"
+                    >
+                      {{
+                        recordingId === action.id
+                          ? '请按下快捷键...'
+                          : formatShortcut(shortcuts[action.id])
+                      }}
+                    </button>
+                    <button
+                      class="shortcut-reset"
+                      :aria-label="`重置${action.label}快捷键`"
+                      @click="onResetShortcut(action.id)"
+                    >
+                      重置
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section
+              id="settings-panel-preload"
+              v-show="activeSettingsSection === 'preload'"
+              class="settings-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-preload"
+            >
+              <p class="settings-panel-note">开启后会立即预加载所选内容。</p>
+              <div class="form-group">
+                <div class="toggle-row">
+                  <label class="toggle-label" for="settings-preload-enabled">启用预加载</label>
+                  <label class="toggle-switch">
+                    <input
+                      id="settings-preload-enabled"
+                      type="checkbox"
+                      :checked="preloadConfig.enabled"
+                      @change="setPreloadEnabled($event.target.checked)"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div v-if="preloadConfig.enabled" class="settings-subsection preload-items">
+                <div
+                  v-for="item in PRELOAD_ITEMS"
+                  :key="item.key"
+                  class="toggle-row"
+                >
+                  <label class="shortcut-label" :for="`settings-preload-${item.key}`">{{ item.label }}</label>
+                  <label class="toggle-switch">
+                    <input
+                      :id="`settings-preload-${item.key}`"
+                      type="checkbox"
+                      :checked="preloadConfig.items[item.key]"
+                      @change="setPreloadItem(item.key, $event.target.checked)"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       </main>
@@ -1040,9 +1140,6 @@
     background: var(--color-primary);
     color: #ffffff;
     border-color: var(--color-primary);
-  }
-  .settings-form {
-    max-width: 480px;
   }
   .sidebar-settings-help {
     margin-top: var(--spacing-sm);
@@ -1327,22 +1424,6 @@
     align-items: center;
     justify-content: flex-end;
     margin-bottom: var(--spacing-sm);
-  }
-  /* 设置分组标题 */
-  .settings-group-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: var(--spacing-lg) 0 var(--spacing-sm);
-    padding-top: var(--spacing-sm);
-    border-top: 1px solid var(--color-border-light);
-  }
-  .settings-group-title:first-child {
-    margin-top: 0;
-    border-top: none;
-    padding-top: 0;
   }
   .reset-all-btn {
     font-size: 12px;

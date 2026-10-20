@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   PLAYLISTS: 'vmusic-playlists',
   CATEGORY_STATE: 'vmusic-category-state',
   PROFILE_ACTIVE_MENU: 'vmusic-profile-active-menu',
+  SETTINGS_SECTION: 'vmusic-settings-section',
   THEME: 'vmusic-theme',
   THEME_COLOR: 'vmusic-theme-color',
   SIDEBAR_AUTO_HIDE: 'vmusic-sidebar-auto-hide',

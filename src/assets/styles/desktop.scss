@@ -208,18 +208,119 @@ body .app-container .profile-view .section-title {
   font-size: 24px;
 }
 body .app-container .profile-view .settings-form {
-  max-width: none;
-  padding: 28px;
+  --settings-tabs-height: 65px;
+  --settings-player-space: 0px;
   background: var(--surface-content);
   border-radius: 24px;
 }
-body .app-container .profile-view .settings-group-title {
-  margin-top: 32px;
-  color: var(--color-text);
-  font-size: 15px;
+body .app-container > .main-content.has-player .settings-form {
+  --settings-player-space: calc(var(--player-height) + var(--shell-gap) * 2);
 }
-body .app-container .profile-view .settings-group-title:first-child {
+body .profile-view .settings-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--color-border-light);
+  border-radius: 24px 24px 0 0;
+  background: var(--glass-solid);
+}
+body .profile-view .settings-tab {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+body .profile-view .settings-tab:hover {
+  background: var(--color-secondary-bg-hover);
+  color: var(--color-text);
+}
+body .profile-view .settings-tab[aria-selected='true'] {
+  background: var(--color-primary-bg);
+  color: var(--color-accent-ink);
+}
+body .profile-view .settings-panel {
+  min-height: calc(100dvh - var(--navbar-height) - var(--shell-gap) - var(--settings-player-space) - var(--settings-tabs-height));
+  padding: 8px 28px 28px;
+}
+body .app-container .profile-view .settings-form .form-group,
+body .app-container .profile-view .settings-form .shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 16px 24px;
+  align-items: center;
+  max-width: none;
+  margin: 0;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--color-border-light);
+  scroll-margin-top: calc(var(--settings-tabs-height) + 16px);
+}
+body .app-container .profile-view .settings-form .form-group:last-child,
+body .app-container .profile-view .settings-form .shortcut-row:last-child {
+  border-bottom: 0;
+}
+body .app-container .profile-view .settings-form .form-label {
+  margin: 0;
+  font-size: 14px;
+}
+body .app-container .profile-view .settings-form .form-group > .toggle-row {
+  display: contents;
+}
+body .app-container .profile-view .settings-form :is(.quality-segmented, .theme-color-swatches, .toggle-switch, .shortcut-controls) {
+  justify-self: end;
+  max-width: 100%;
+}
+body .app-container .profile-view .settings-form .quality-tab.active {
+  color: var(--color-accent-ink);
+}
+body .app-container .profile-view .settings-form .settings-subsection {
+  grid-column: 2;
+  width: 100%;
+  max-width: 480px;
+  margin-left: auto;
+}
+body .app-container .profile-view .settings-form .settings-subsection .sidebar-range-label:first-child {
   margin-top: 0;
+}
+body .app-container .profile-view .settings-form .preload-items .toggle-row {
+  min-height: 52px;
+  gap: 16px;
+}
+body .profile-view .settings-panel :is(button, input) {
+  scroll-margin-top: calc(var(--settings-tabs-height) + 16px);
+  scroll-margin-bottom: calc(var(--settings-player-space) + 16px);
+}
+body .profile-view .settings-panel-note {
+  padding-top: 16px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+body .app-container .profile-view .settings-form .shortcuts-section {
+  margin-top: 16px;
+}
+body .app-container .profile-view .settings-form .shortcut-row {
+  padding-block: 16px;
+}
+body .app-container .profile-view .settings-form .shortcut-controls {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+body .app-container .profile-view .settings-form .shortcut-conflict {
+  order: 1;
+  flex-basis: 100%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+body .app-container .profile-view .settings-form :is(.form-label, .toggle-label, .shortcut-label, .setting-copy) {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 body .app-container .profile-view .form-group {
   max-width: 680px;
