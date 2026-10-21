@@ -466,6 +466,9 @@
     min-width: 0;
     font-size: 13px;
   }
+  .search-box input::-webkit-search-cancel-button {
+    display: none;
+  }
   .search-box:focus-within {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;

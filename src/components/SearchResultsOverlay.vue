@@ -405,6 +405,8 @@
   .music-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: max-content;
+    align-content: start;
     gap: var(--spacing-lg);
   }
 
