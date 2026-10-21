@@ -97,15 +97,11 @@
       return
     }
 
-    const trackId = playerStore.currentTrack.id
+    const track = playerStore.currentTrack
+    const trackId = track.id
+    const uid = userStore.userInfo.id
     const nextLiked = !liked.value
 
-    // 乐观更新：先改 store，UI 经 computed 立即响应
-    if (nextLiked) {
-      userStore.addLikedSong(trackId)
-    } else {
-      userStore.removeLikedSong(trackId)
-    }
     likeAnim.value = true
     setTimeout(() => {
       likeAnim.value = false
@@ -114,14 +110,12 @@
     isLiking.value = true
     try {
       await likeSong({ id: trackId, like: nextLiked })
+      if (uid !== userStore.userInfo.id) return
+      if (nextLiked) userStore.addLikedSong(trackId, track)
+      else userStore.removeLikedSong(trackId)
       uiStore.showToast(nextLiked ? '已添加到喜欢' : '已取消喜欢', 'success')
     } catch (e) {
-      // 请求失败时回滚 store 状态
-      if (nextLiked) {
-        userStore.removeLikedSong(trackId)
-      } else {
-        userStore.addLikedSong(trackId)
-      }
+      if (uid !== userStore.userInfo.id) return
       uiStore.showToast('操作失败，请稍后重试', 'error')
       console.error('Like song failed:', e)
     } finally {

@@ -40,8 +40,6 @@
   )
 
   onMounted(() => {
-    userStore.restore()
-    userStore.fetchLikedSongs()
     musicStore.restorePlaylists()
     musicStore.restoreCategoryState()
   })

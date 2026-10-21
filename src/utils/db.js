@@ -110,7 +110,7 @@ export async function getTrackDetailFromCache(ids) {
 
 export async function cachePlaylistDetail(id, playlist, tracks, isSubscribed) {
   await db.playlistDetail.put({
-    id,
+    id: Number(id),
     playlist,
     tracks,
     isSubscribed,
@@ -121,15 +121,23 @@ export async function cachePlaylistDetail(id, playlist, tracks, isSubscribed) {
 }
 
 export async function getPlaylistDetailFromCache(id) {
-  const record = await db.playlistDetail.get(id)
+  const record = await db.playlistDetail.get(Number(id)) || await db.playlistDetail.get(String(id))
   if (!record) return null
-  await db.playlistDetail.update(id, { lastAccess: Date.now() })
+  await db.playlistDetail.update(record.id, { lastAccess: Date.now() })
   return {
     playlist: record.playlist,
     tracks: record.tracks,
     isSubscribed: record.isSubscribed,
     stale: isStale(record.updateTime, CACHE_TTL_PLAYLIST_DETAIL)
   }
+}
+
+export async function invalidatePlaylistDetail(id) {
+  await db.playlistDetail.bulkDelete([Number(id), String(id)])
+}
+
+export async function invalidateUserPlaylists(uid) {
+  await db.userPlaylists.delete(String(uid))
 }
 
 // ========== trackSource 表（只存 url，不存字节） ==========

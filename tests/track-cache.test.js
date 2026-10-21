@@ -3,7 +3,7 @@ import Dexie from 'dexie'
 import { flushPromises } from '@vue/test-utils'
 import request from '@/utils/request'
 import * as cache from '@/utils/db'
-import { getMP3, getTrackDetail } from '@/api/track'
+import { getMP3, getTrackDetail, resetTrackSourceCache } from '@/api/track'
 
 vi.mock('@/utils/request', () => ({ default: vi.fn() }))
 let inspector
@@ -87,4 +87,16 @@ it('过期详情先返回旧缓存，再后台更新', async () => {
   expect((await getTrackDetail('1')).songs[0].name).toBe('Cached')
   await flushPromises()
   expect(request).toHaveBeenCalledTimes(1)
+})
+
+it('切账号后迟到的旧音源不能重新污染缓存', async () => {
+  let resolve
+  request.mockReturnValueOnce(new Promise(yes => { resolve = yes }))
+  const old = getMP3(1, 320000, { forceRefresh: true })
+  await flushPromises()
+  await resetTrackSourceCache()
+  resolve({ data: [{ id: 1, url: 'https://old-account', freeTrialInfo: null }] })
+  await old
+  expect(await cache.getTrackSourceFromCache(1)).toBeNull()
+  expect((await getMP3(1, 320000)).data[0].url).toBe('https://new')
 })

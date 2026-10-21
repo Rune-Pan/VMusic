@@ -1,6 +1,6 @@
 <script setup>
   import GlassSurface from '@/components/GlassSurface.vue'
-  import { computed, watch } from 'vue'
+  import { computed, nextTick, onUnmounted, ref } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { X, Search } from '@/components/icons'
   import { useMusicStore } from '@/stores/music'
@@ -15,8 +15,77 @@
   const musicStore = useMusicStore()
   const uiStore = useUiStore()
 
-  function showAlbumTip() {
-    uiStore.showToast('暂不支持查看专辑详情', 'warning')
+  const overlay = ref(null)
+  let pendingPop = null
+  const history = router.options.history
+  const stopHistory = history.listen(location => {
+    pendingPop = { location, position: history.state.position }
+  })
+  const stopNavigation = router.afterEach((to, from, failure) => {
+    const position = history.state.position
+    const isPop =
+      pendingPop?.location === to.fullPath && pendingPop.position === position
+    pendingPop = null
+    if (failure) return
+    const context = musicStore.searchReturnContext
+    if (context) {
+      if (position < context.position) musicStore.clearSearch()
+      else if (
+        isPop && position === context.position && to.fullPath === context.fullPath
+      ) musicStore.resumeSearch()
+      else if (
+        musicStore.searchVisible &&
+        (position !== context.position || to.fullPath !== context.fullPath)
+      ) {
+        if (isPop) musicStore.searchVisible = false
+        else musicStore.clearSearch()
+      }
+    } else if (to.fullPath !== from.fullPath && musicStore.searchVisible) {
+      musicStore.clearSearch()
+    }
+  })
+  onUnmounted(() => {
+    stopHistory()
+    stopNavigation()
+  })
+
+  async function goAlbum(event, id) {
+    if (
+      event.button > 0 || event.ctrlKey || event.metaKey ||
+      event.shiftKey || event.altKey
+    ) return
+    event.preventDefault()
+    const context = musicStore.suspendSearch({
+      position: history.state.position,
+      fullPath: route.fullPath,
+      scrollTop: overlay.value?.querySelector('.panel')?.scrollTop || 0,
+      albumId: String(id)
+    })
+    try {
+      const failure = await router.push({
+        name: 'album', params: { id }, force: true
+      })
+      if (!failure) return
+    } catch {
+      uiStore.showToast('专辑暂时无法打开，请重试', 'error')
+    }
+    if (
+      musicStore.searchReturnContext === context &&
+      history.state.position === context.position &&
+      route.fullPath === context.fullPath
+    ) musicStore.resumeSearch()
+  }
+
+  async function restoreSearchPosition() {
+    await nextTick()
+    const context = musicStore.searchReturnContext
+    const panel = overlay.value?.querySelector('.panel')
+    if (!musicStore.searchVisible || !context || !panel) return
+    panel.scrollTop = context.scrollTop
+    const card = [...panel.querySelectorAll('[data-album-id]')].find(
+      element => element.dataset.albumId === context.albumId
+    )
+    card?.focus({ preventScroll: true })
   }
 
   function goArtist(id) {
@@ -32,17 +101,9 @@
     return url ? resizeImage(url, IMAGE_SIZE_CARD) : PLACEHOLDER_IMG
   }
 
-  // 路由变化时自动关闭搜索覆盖层
-  watch(
-    () => route.path,
-    () => {
-      if (visible.value) {
-        musicStore.clearSearch()
-      }
-    }
+  const visible = computed(
+    () => musicStore.searchVisible && musicStore.searchKeyword.trim().length > 0
   )
-
-  const visible = computed(() => musicStore.searchKeyword.trim().length > 0)
 
   const SEARCH_TABS = [
     { key: 'tracks', label: '单曲' },
@@ -54,6 +115,7 @@
   const displayList = computed(() => {
     return musicStore.searchResultsByType[musicStore.searchType] || []
   })
+  const currentPage = computed(() => musicStore.searchPageByType[musicStore.searchType])
 
   const currentTabCount = computed(() => {
     return (musicStore.searchResultsByType[musicStore.searchType] || []).length
@@ -76,8 +138,8 @@
 </script>
 
 <template>
-  <transition name="fade">
-    <div v-if="visible" class="overlay" @click.self="close">
+  <transition name="fade" @after-enter="restoreSearchPosition">
+    <div v-if="visible" ref="overlay" class="overlay" @click.self="close">
       <GlassSurface class="panel" modal label="搜索结果">
         <div class="panel-header">
           <div class="header-info">
@@ -110,7 +172,7 @@
 
         <!-- 加载态：单曲用行式骨架匹配 TrackList，其他用网格卡片 -->
         <div
-          v-if="musicStore.searchLoading"
+          v-if="musicStore.searchLoading && displayList.length === 0"
           class="loading-state"
           :class="{ 'loading-list': musicStore.searchType === 'tracks' }"
         >
@@ -122,7 +184,7 @@
         </div>
 
         <!-- 空态 -->
-        <div v-else-if="displayList.length === 0" class="empty-state">
+        <div v-else-if="displayList.length === 0 && !currentPage?.error" class="empty-state">
           <Search :size="48" color="var(--color-text-muted)" />
           <p class="empty-text">没有找到相关结果</p>
         </div>
@@ -174,33 +236,49 @@
           />
         </div>
 
-        <!-- 专辑卡片（无独立专辑页，仅展示） -->
+        <!-- 专辑卡片：离开时暂存搜索现场 -->
         <div
           v-else-if="musicStore.searchType === 'albums'"
           class="results-content music-grid"
         >
-          <div
+          <RouterLink
             v-for="item in displayList"
             :key="item.id"
-            class="album-card"
-            role="button"
-            tabindex="0"
-            @keydown.enter="showAlbumTip"
-            @click="showAlbumTip"
+            v-slot="{ href }"
+            :to="{ name: 'album', params: { id: item.id } }"
+            custom
           >
-            <div class="album-cover-wrapper">
-              <img
-                :src="getSearchCover(item)"
-                :alt="item.name"
-                class="album-cover"
-                loading="lazy"
-              />
-            </div>
-            <div class="album-name text-ellipsis">{{ item.name }}</div>
-            <div class="album-artist text-ellipsis">
-              {{ item.artist?.name || '' }}
-            </div>
-          </div>
+            <a
+              :href="href"
+              :aria-label="item.name"
+              class="album-card"
+              :data-album-id="item.id"
+              @click="goAlbum($event, item.id)"
+            >
+              <div class="album-cover-wrapper">
+                <img
+                  :src="getSearchCover(item)"
+                  :alt="item.name"
+                  class="album-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div class="album-name text-ellipsis">{{ item.name }}</div>
+              <div class="album-artist text-ellipsis">
+                {{ item.artist?.name || '' }}
+              </div>
+            </a>
+          </RouterLink>
+        </div>
+        <div class="search-pagination" aria-live="polite">
+          <p v-if="currentPage?.error" role="alert">{{ currentPage.error }}</p>
+          <button
+            v-if="currentPage?.hasMore || currentPage?.error"
+            class="search-tab"
+            :disabled="currentPage.loading"
+            @click="musicStore.loadMoreSearch()"
+          >{{ currentPage.loading ? '加载中…' : currentPage.error ? '重试' : '加载更多' }}</button>
+          <p v-else-if="displayList.length">已显示全部 {{ displayList.length }} 条结果</p>
         </div>
       </GlassSurface>
     </div>
@@ -208,6 +286,11 @@
 </template>
 
 <style scoped>
+  .search-pagination {
+    padding-top: var(--spacing-md);
+    text-align: center;
+    color: var(--color-text-secondary);
+  }
   .overlay {
     position: fixed;
     top: 0;

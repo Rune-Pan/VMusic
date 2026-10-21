@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getPageScrollContainer, queuePageScroll } from '@/utils/pageScroll'
+import { getLoginRedirect } from '@/utils/common'
 
 const pagePositions = new Map()
 let currentEntry = window.history.state?.position
@@ -40,6 +41,12 @@ const router = createRouter({
       meta: { requiresAuth: true, title: '歌单 - 听潮' }
     },
     {
+      path: '/local-playlist/:id',
+      name: 'local-playlist',
+      component: () => import('@/views/PlaylistView.vue'),
+      meta: { requiresAuth: true, localPlaylist: true, title: '本机历史歌单 - 听潮' }
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/views/ProfileView.vue'),
@@ -58,6 +65,12 @@ const router = createRouter({
       meta: { requiresAuth: true, title: '排行榜 - 听潮' }
     },
     {
+      path: '/album/:id',
+      name: 'album',
+      component: () => import('@/views/AlbumView.vue'),
+      meta: { requiresAuth: true, title: '专辑 - 听潮' }
+    },
+    {
       path: '/artist/:id',
       name: 'artist',
       component: () => import('@/views/ArtistView.vue'),
@@ -68,7 +81,7 @@ const router = createRouter({
 
 let restored = false
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async to => {
   const container = getPageScrollContainer()
   pagePositions.set(currentEntry, {
     top: container ? container.scrollTop : window.scrollY,
@@ -82,13 +95,21 @@ router.beforeEach((to, from, next) => {
 
   document.title = to.meta.title || '听潮'
 
+  const session = userStore.sessionStatus === 'error' ? 'error' : await userStore.ensureSession()
+
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
+    return { name: 'login', query: { redirect: to.fullPath, ...(session === 'error' ? { retry: 'session' } : {}) } }
   } else if (to.name === 'login' && userStore.isLoggedIn) {
-    next({ name: 'home' })
-  } else {
-    next()
+    return getLoginRedirect(to.query.redirect)
   }
+})
+
+window.addEventListener('vmusic:session-expired', () => {
+  const user = useUserStore()
+  if (!user.isLoggedIn) return
+  const target = router.currentRoute.value
+  user.expireSession()
+  router.replace({ name: 'login', query: { redirect: target.fullPath } })
 })
 
 router.afterEach((_to, _from, failure) => {

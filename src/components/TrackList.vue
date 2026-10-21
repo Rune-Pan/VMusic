@@ -85,14 +85,17 @@
       closeContextMenu()
       return
     }
+    const uid = userStore.userInfo.id
     const nextLiked = !isLiked(track)
     liking.value = true
     try {
       await likeSong({ id: track.id, like: nextLiked })
-      if (nextLiked) userStore.addLikedSong(track.id)
+      if (uid !== userStore.userInfo.id) return
+      if (nextLiked) userStore.addLikedSong(track.id, track)
       else userStore.removeLikedSong(track.id)
       uiStore.showToast(nextLiked ? '已添加到喜欢' : '已取消喜欢', 'success')
     } catch (e) {
+      if (uid !== userStore.userInfo.id) return
       uiStore.showToast('操作失败，请稍后重试', 'error')
       console.error('Like song failed:', e)
     } finally {

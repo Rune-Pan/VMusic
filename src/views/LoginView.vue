@@ -16,6 +16,7 @@
     ShieldCheck
   } from '@/components/icons'
   import BrandMark from '@/components/BrandMark.vue'
+  import { getLoginRedirect } from '@/utils/common'
   import QRCode from 'qrcode'
   import { useUserStore } from '@/stores/user'
   import { useUiStore } from '@/stores/ui'
@@ -27,6 +28,14 @@
   const route = useRoute()
   const userStore = useUserStore()
   const uiStore = useUiStore()
+  const retryingSession = ref(false)
+  const loginRedirect = () => getLoginRedirect(route.query.redirect)
+  async function retrySession() {
+    retryingSession.value = true
+    const status = await userStore.ensureSession()
+    retryingSession.value = false
+    if (status === 'valid') router.push(loginRedirect())
+  }
 
   // 登录模式：'qrCode' | 'account'
   const mode = ref('qrCode')
@@ -171,7 +180,7 @@
       loading.value = false
       if (success) {
         uiStore.showToast('登录成功', 'success')
-        const redirect = route.query.redirect || '/'
+        const redirect = loginRedirect()
         router.push(redirect)
       } else {
         uiStore.showToast('登录失败，请检查账号密码', 'error')
@@ -186,7 +195,7 @@
       loading.value = false
       if (success) {
         uiStore.showToast('登录成功', 'success')
-        const redirect = route.query.redirect || '/'
+        const redirect = loginRedirect()
         router.push(redirect)
       } else {
         uiStore.showToast('登录失败，请检查手机号或验证码', 'error')
@@ -257,7 +266,7 @@
           const success = await userStore.loginWithQrCode(cookie)
           if (success) {
             uiStore.showToast('登录成功', 'success')
-            const redirect = route.query.redirect || '/'
+            const redirect = loginRedirect()
             router.push(redirect)
           } else {
             uiStore.showToast('登录失败，请重试', 'error')
@@ -325,6 +334,12 @@
       </div>
 
       <div class="form-section glass-panel">
+      <div v-if="userStore.sessionStatus === 'error'" class="session-error" role="alert">
+        <p>{{ userStore.sessionError }}</p>
+        <button class="refresh-btn" :disabled="retryingSession" @click="retrySession">
+          {{ retryingSession ? '校验中…' : '重试登录状态校验' }}
+        </button>
+      </div>
         <div class="form-tabs">
           <button
             class="tab"
@@ -482,6 +497,13 @@
 </template>
 
 <style scoped>
+  .session-error {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+  }
+  .session-error .refresh-btn { color: var(--color-accent-ink); }
   .login-page {
     position: relative;
     min-height: 100vh;

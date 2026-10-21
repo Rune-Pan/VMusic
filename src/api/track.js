@@ -1,14 +1,24 @@
 import { mapTrackPlayableStatus } from '@/utils/common'
 import request from '@/utils/request'
+import { requireApiSuccess } from '@/utils/apiResult'
 import {
   cacheTrackDetail,
   getTrackDetailFromCache,
   cacheTrackSource,
   getTrackSourceFromCache,
   cacheMisc,
-  getMiscFromCache
+  getMiscFromCache,
+  clearTrackSourceCache
 } from '@/utils/db'
 import { STORAGE_KEYS, DEFAULT_MUSIC_QUALITY } from '@/constants'
+
+let sourceGeneration = 0
+let sourceReset = Promise.resolve()
+export function resetTrackSourceCache() {
+  sourceGeneration++
+  sourceReset = clearTrackSourceCache().catch(() => {})
+  return sourceReset
+}
 
 // 读取音质偏好（getMP3 默认 br）
 function getMusicQuality() {
@@ -21,6 +31,7 @@ export function getMP3(
   br = getMusicQuality(),
   { forceRefresh = false } = {}
 ) {
+  const token = sourceGeneration
   // SWR：命中未过期直接返回；过期返回旧值同时后台刷新；未命中等网络
   const fetchLatest = async () => {
     const data = await request({
@@ -31,14 +42,14 @@ export function getMP3(
     const item = data?.data?.[0]
     const url = item?.url
     // 试听片段 url 不缓存（freeTrialInfo 非空即试听），避免非 VIP 的试听 url 污染缓存
-    if (url && !item.freeTrialInfo) {
+    if (url && !item.freeTrialInfo && token === sourceGeneration) {
       cacheTrackSource(id, url, br).catch(() => {})
     }
     return data
   }
 
-  if (forceRefresh) return fetchLatest()
-  return getTrackSourceFromCache(id)
+  if (forceRefresh) return sourceReset.then(fetchLatest)
+  return sourceReset.then(() => getTrackSourceFromCache(id))
     .catch(() => null)
     .then(async cached => {
       if (cached && Number(cached.br) === Number(br)) {
@@ -98,7 +109,9 @@ export function scrobble(params) {
 // 参考 YesPlayMusic src/api/track.js likeATrack：喜欢 / 取消喜欢歌曲
 export function likeSong(params) {
   params.timestamp = Date.now()
-  return request({ url: '/like', method: 'get', params })
+  return request({ url: '/like', method: 'get', params }).then(data =>
+    requireApiSuccess(data, '喜欢操作失败')
+  )
 }
 
 // 参考 NeteaseCloudMusicApi module/comment_music：获取歌曲评论

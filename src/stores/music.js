@@ -14,6 +14,11 @@ import {
   topPlaylist,
   createPlaylist as createPlaylistApi,
   deletePlaylist as deletePlaylistApi,
+  updatePlaylistName,
+  updatePlaylistDescription,
+  subscribePlaylist as subscribePlaylistApi,
+  addTracksToPlaylist,
+  invalidatePlaylistCache,
   dailyRecommendTracks,
   dailyRecommendPlaylist,
   toplists,
@@ -22,7 +27,7 @@ import {
 } from '@/api/playlist'
 import { search as searchApi, SEARCH_TYPES } from '@/api/others'
 import { getLyric, getTrackDetail } from '@/api/track'
-import { userPlayHistory } from '@/api/user'
+import { userPlayHistory, userPlaylist, invalidateUserPlaylistCache } from '@/api/user'
 import { parseLRC } from '@/utils/common'
 import { cacheLyric, getLyricFromCache } from '@/utils/db'
 
@@ -31,6 +36,8 @@ export const useMusicStore = defineStore('music', () => {
   const categoryList = ref(['全部'])
   const searchResults = ref([])
   const searchKeyword = ref('')
+  const searchVisible = ref(false)
+  const searchReturnContext = ref(null)
   const searchType = ref('tracks') // 当前搜索类型 Tab
   const searchResultsByType = ref({
     tracks: [],
@@ -38,8 +45,74 @@ export const useMusicStore = defineStore('music', () => {
     artists: [],
     albums: []
   })
-  const searchLoading = ref(false)
+  const searchPageByType = ref({})
+  const searchLoading = computed(() => searchPageByType.value[searchType.value]?.loading || false)
+  let searchGeneration = 0
+  const freshPage = () => ({ loading: false, error: '', offset: 0, hasMore: true, total: null })
   const userPlaylists = ref([])
+  const serverPlaylists = ref([])
+  const playlistsLoading = ref(false)
+  const playlistsError = ref('')
+  const playlistChanges = ref({})
+  let accountUid = null
+  let accountGeneration = 0
+  let playlistGeneration = 0
+
+  function setAccount(uid) {
+    if (String(uid) === String(accountUid)) return
+    accountUid = uid
+    accountGeneration++
+    playlistGeneration++
+    serverPlaylists.value = []
+    playlistsLoading.value = false
+    playlistsError.value = ''
+    playlistChanges.value = {}
+    serverPlayHistory.value = { weekData: [], allData: [] }
+    historyLoading.value = false
+    _lastFetchHistoryAt = 0
+    dailyRecommend.value = { songs: [], playlists: [], date: '' }
+    dailyRecommendLoading.value = false
+    clearSearch()
+    clearLyrics()
+  }
+
+  async function fetchUserPlaylists(uid = accountUid, force = false) {
+    if (!uid) return []
+    const token = ++playlistGeneration
+    const account = accountGeneration
+    playlistsLoading.value = true
+    playlistsError.value = ''
+    try {
+      const data = await userPlaylist({ uid, limit: 1000 }, { forceRefresh: force || !serverPlaylists.value.length })
+      if (token !== playlistGeneration || account !== accountGeneration) return []
+      serverPlaylists.value = data.playlist || []
+      return serverPlaylists.value
+    } catch (e) {
+      if (token === playlistGeneration && account === accountGeneration) playlistsError.value = e.message || '歌单加载失败，请重试'
+      throw e
+    } finally {
+      if (token === playlistGeneration) playlistsLoading.value = false
+    }
+  }
+
+  async function refreshAfterWrite(id, uid, token) {
+    await Promise.all([
+      invalidateUserPlaylistCache(uid).catch(() => {}),
+      id == null ? Promise.resolve() : invalidatePlaylistCache(id).catch(() => {})
+    ])
+    if (token !== accountGeneration) return
+    if (id != null) playlistChanges.value[id] = (playlistChanges.value[id] || 0) + 1
+    try { await fetchUserPlaylists(uid, true) }
+    catch { playlistsError.value = '云端已保存，但列表刷新失败，请重试加载' }
+  }
+
+  async function changePlaylist(id, write) {
+    if (!accountUid) throw new Error('请先登录')
+    const uid = accountUid
+    const token = accountGeneration
+    try { return await write() }
+    finally { await refreshAfterWrite(id, uid, token) }
+  }
   const currentLyrics = ref([])
   const currentLyricsTrackId = ref(null)
   let lyricsGeneration = 0
@@ -160,68 +233,53 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
-  async function search(keyword) {
-    searchKeyword.value = keyword
-    if (!keyword.trim()) {
-      searchResults.value = []
-      searchResultsByType.value = {
-        tracks: [],
-        playlists: [],
-        artists: [],
-        albums: []
-      }
-      return
-    }
-    searchLoading.value = true
+  async function loadMoreSearch(type = searchType.value) {
+    const keyword = searchKeyword.value.trim()
+    const page = searchPageByType.value[type]
+    if (!keyword || !page || page.loading || !page.hasMore) return
+    const token = searchGeneration
+    page.loading = true
+    page.error = ''
     try {
-      const limit = SEARCH_LIMIT
-      const requests = Object.entries(SEARCH_TYPES).map(([type, code]) =>
-        searchApi({ keywords: keyword, type: code, limit })
-          .then(data => {
-            const result = data.result || {}
-            if (type === 'tracks')
-              return { type, items: result.songs || result.song?.songs || [] }
-            if (type === 'albums') return { type, items: result.albums || [] }
-            if (type === 'artists') return { type, items: result.artists || [] }
-            if (type === 'playlists')
-              return { type, items: result.playlists || [] }
-            return { type, items: [] }
-          })
-          .catch(() => ({ type, items: [] }))
-      )
-      const results = await Promise.all(requests)
-      const byType = {}
-      for (const { type, items } of results) {
-        byType[type] = items
-      }
-      // 参考 YesPlayMusic：搜索 API 返回的歌曲属性名与详情 API 不同
-      // 需要调用 getTrackDetail 获取完整曲目数据（ar/al/dt）
-      if (byType.tracks && byType.tracks.length > 0) {
-        const trackIDs = byType.tracks.map(t => t.id)
+      const data = await searchApi({ keywords: keyword, type: SEARCH_TYPES[type], limit: SEARCH_LIMIT, offset: page.offset })
+      if (data.code !== undefined && Number(data.code) !== 200) throw new Error(data.message || '搜索失败')
+      const result = data.result || {}
+      const field = { tracks: 'songs', playlists: 'playlists', artists: 'artists', albums: 'albums' }[type]
+      const raw = result[field] || (type === 'tracks' ? result.song?.songs : []) || []
+      let items = raw
+      if (type === 'tracks' && raw.length) {
         try {
-          const detailData = await getTrackDetail(trackIDs.join(','))
-          if (detailData.songs && detailData.songs.length > 0) {
-            byType.tracks = detailData.songs
-          }
-        } catch {
-          // 详情获取失败，保留搜索原始数据
-        }
+          const details = await getTrackDetail(raw.map(t => t.id).join(','))
+          const byId = new Map((details.songs || []).map(t => [String(t.id), t]))
+          items = raw.map(t => byId.get(String(t.id)) || t)
+        } catch { /* 详情不可用时保留搜索结果 */ }
       }
-      searchResultsByType.value = byType
-      // 兼容旧的 searchResults（默认显示单曲）
-      searchResults.value = byType.tracks || []
+      if (token !== searchGeneration) return
+      const existing = searchResultsByType.value[type]
+      const seen = new Set(existing.map(t => String(t.id)))
+      searchResultsByType.value[type] = [...existing, ...items.filter(t => {
+        if (seen.has(String(t.id))) return false
+        seen.add(String(t.id))
+        return true
+      })]
+      page.offset += raw.length
+      const countField = { tracks: 'songCount', playlists: 'playlistCount', artists: 'artistCount', albums: 'albumCount' }[type]
+      page.total = Number.isFinite(result[countField]) ? result[countField] : null
+      page.hasMore = raw.length > 0 && (page.total !== null ? page.offset < page.total : result.hasMore ?? raw.length === SEARCH_LIMIT)
+      if (searchType.value === type) searchResults.value = searchResultsByType.value[type]
     } catch (e) {
-      console.error('Failed to search:', e)
-      searchResultsByType.value = {
-        tracks: [],
-        playlists: [],
-        artists: [],
-        albums: []
-      }
-      searchResults.value = []
+      if (token === searchGeneration) page.error = e.message || '搜索失败，请重试'
     } finally {
-      searchLoading.value = false
+      if (token === searchGeneration) page.loading = false
     }
+  }
+
+  async function search(keyword) {
+    clearSearch()
+    searchKeyword.value = keyword.trim()
+    if (!searchKeyword.value) return
+    searchVisible.value = true
+    await Promise.all(Object.keys(SEARCH_TYPES).map(type => loadMoreSearch(type)))
   }
 
   function setSearchType(type) {
@@ -230,15 +288,28 @@ export const useMusicStore = defineStore('music', () => {
   }
 
   function clearSearch() {
+    searchGeneration++
+    searchVisible.value = false
+    searchReturnContext.value = null
     searchKeyword.value = ''
     searchResults.value = []
-    searchResultsByType.value = {
-      tracks: [],
-      playlists: [],
-      artists: [],
-      albums: []
-    }
+    searchResultsByType.value = { tracks: [], playlists: [], artists: [], albums: [] }
+    searchPageByType.value = Object.fromEntries(Object.keys(SEARCH_TYPES).map(type => [type, freshPage()]))
     searchType.value = 'tracks'
+  }
+
+  function suspendSearch(context) {
+    searchReturnContext.value = { ...context, generation: searchGeneration }
+    searchVisible.value = false
+    return searchReturnContext.value
+  }
+
+  function resumeSearch() {
+    if (
+      searchReturnContext.value?.generation !== searchGeneration ||
+      !searchKeyword.value
+    ) return
+    searchVisible.value = true
   }
 
   async function fetchLyrics(trackId) {
@@ -306,6 +377,7 @@ export const useMusicStore = defineStore('music', () => {
       Date.now() - _lastFetchHistoryAt < FETCH_DEBOUNCE_PLAY_HISTORY
     )
       return
+    const token = accountGeneration
     _lastFetchHistoryAt = Date.now()
     historyLoading.value = true
     try {
@@ -321,11 +393,13 @@ export const useMusicStore = defineStore('music', () => {
         ...item.song,
         playCount: item.playCount
       }))
+      if (token !== accountGeneration) return
       serverPlayHistory.value = { allData, weekData }
     } catch (e) {
+      if (token === accountGeneration) _lastFetchHistoryAt = 0
       console.error('Failed to fetch play history:', e)
     }
-    historyLoading.value = false
+    if (token === accountGeneration) historyLoading.value = false
   }
 
   // 每日推荐缓存
@@ -348,12 +422,14 @@ export const useMusicStore = defineStore('music', () => {
       return dailyRecommend.value
     }
 
+    const token = accountGeneration
     dailyRecommendLoading.value = true
     try {
       const [songsData, playlistsData] = await Promise.all([
         dailyRecommendTracks(),
         dailyRecommendPlaylist()
       ])
+      if (token !== accountGeneration) return dailyRecommend.value
       dailyRecommend.value = {
         songs: songsData.data?.dailySongs || [],
         playlists: playlistsData.recommend || [],
@@ -363,7 +439,7 @@ export const useMusicStore = defineStore('music', () => {
       console.error('Failed to fetch daily recommend:', e)
       throw e
     } finally {
-      dailyRecommendLoading.value = false
+      if (token === accountGeneration) dailyRecommendLoading.value = false
     }
     return dailyRecommend.value
   }
@@ -406,66 +482,43 @@ export const useMusicStore = defineStore('music', () => {
     }
   }
 
-  // 参考 YesPlayMusic ModalNewPlaylist.createPlaylist
   async function createPlaylist(name, description = '') {
-    // 1. 先调网易云 API 创建歌单
+    if (!accountUid) throw new Error('请先登录')
+    const uid = accountUid
+    const token = accountGeneration
     const result = await createPlaylistApi({ name, privacy: 10 })
-    if (result.code !== 200) {
-      throw new Error(result.message || '创建歌单失败')
+    const id = result.id || result.playlist?.id
+    if (!id) throw new Error('创建响应缺少歌单编号，请刷新列表确认')
+    try {
+      if (description) await updatePlaylistDescription(id, description)
+    } catch (cause) {
+      const error = new Error(`歌单已创建，但简介未保存：${cause.message}`)
+      error.playlistId = id
+      throw error
+    } finally {
+      await refreshAfterWrite(id, uid, token)
     }
-    const serverId = result.id
-    // 2. 本地也保存一份（用于离线展示）
-    const playlist = {
-      id: serverId,
-      name,
-      description,
-      coverUrl: `https://placehold.co/300x300/1E1E2E/3B82F6?text=${encodeURIComponent(name)}`,
-      tracks: [],
-      createdAt: new Date().toISOString()
-    }
-    userPlaylists.value.unshift(playlist)
-    persistPlaylists()
-    return playlist
+    return { id, name, description }
   }
 
-  function updatePlaylist(id, data) {
-    const idx = userPlaylists.value.findIndex(p => p.id === id)
-    if (idx !== -1) {
-      userPlaylists.value[idx] = { ...userPlaylists.value[idx], ...data }
-      persistPlaylists()
-    }
+  async function updatePlaylist(id, data) {
+    return changePlaylist(id, async () => {
+      await updatePlaylistName(id, data.name)
+      try { await updatePlaylistDescription(id, data.description || '') }
+      catch (cause) { throw new Error(`名称已保存，但简介未保存：${cause.message}`, { cause }) }
+    })
   }
 
-  // 参考 YesPlayMusic playlist_delete API
-  async function deletePlaylist(id) {
-    // 1. 先调网易云 API 删除歌单
-    await deletePlaylistApi({ id })
-    // 2. 服务端删除成功后再本地删除
-    userPlaylists.value = userPlaylists.value.filter(p => p.id !== id)
-    persistPlaylists()
+  function deletePlaylist(id) {
+    return changePlaylist(id, () => deletePlaylistApi({ id }))
   }
 
-  function addTrackToPlaylist(playlistId, track) {
-    const playlist = userPlaylists.value.find(p => p.id === playlistId)
-    if (playlist && !playlist.tracks.some(t => t.id === track.id)) {
-      playlist.tracks.push(track)
-      persistPlaylists()
-    }
+  function setPlaylistSubscribed(id, subscribed) {
+    return changePlaylist(id, () => subscribePlaylistApi(id, subscribed))
   }
 
-  function removeTrackFromPlaylist(playlistId, trackId) {
-    const playlist = userPlaylists.value.find(p => p.id === playlistId)
-    if (playlist) {
-      playlist.tracks = playlist.tracks.filter(t => t.id !== trackId)
-      persistPlaylists()
-    }
-  }
-
-  function persistPlaylists() {
-    localStorage.setItem(
-      STORAGE_KEYS.PLAYLISTS,
-      JSON.stringify(userPlaylists.value)
-    )
+  function changePlaylistTracks(id, trackIds, op) {
+    return changePlaylist(id, () => addTracksToPlaylist({ pid: id, tracks: trackIds.join(','), op }))
   }
 
   function restorePlaylists() {
@@ -536,10 +589,24 @@ export const useMusicStore = defineStore('music', () => {
     activeCategory,
     searchResults,
     searchKeyword,
+    searchVisible,
+    searchReturnContext,
+    suspendSearch,
+    resumeSearch,
     searchType,
     searchResultsByType,
     searchLoading,
+    searchPageByType,
+    loadMoreSearch,
     userPlaylists,
+    serverPlaylists,
+    playlistsLoading,
+    playlistsError,
+    playlistChanges,
+    setAccount,
+    fetchUserPlaylists,
+    changePlaylistTracks,
+    setPlaylistSubscribed,
     currentLyrics,
     currentLyricsTrackId,
     loading,
@@ -566,8 +633,6 @@ export const useMusicStore = defineStore('music', () => {
     createPlaylist,
     updatePlaylist,
     deletePlaylist,
-    addTrackToPlaylist,
-    removeTrackFromPlaylist,
     restorePlaylists,
     restoreCategoryState,
     getTrackById

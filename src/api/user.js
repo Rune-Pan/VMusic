@@ -1,5 +1,13 @@
 import request from '@/utils/request'
-import { cacheUserPlaylists, getUserPlaylistsFromCache } from '@/utils/db'
+import { requireApiSuccess } from '@/utils/apiResult'
+import { cacheUserPlaylists, getUserPlaylistsFromCache, invalidateUserPlaylists } from '@/utils/db'
+
+const playlistRequests = new Map()
+export function invalidateUserPlaylistCache(uid) {
+  const key = String(uid)
+  playlistRequests.set(key, (playlistRequests.get(key) || 0) + 1)
+  return invalidateUserPlaylists(uid)
+}
 
 export function userAccount() {
   return request({
@@ -10,19 +18,25 @@ export function userAccount() {
 }
 
 // SWR：命中未过期直接返回；过期返回旧值 + 后台刷新；未命中等网络
-export function userPlaylist(params) {
+export function userPlaylist(params, { forceRefresh = false } = {}) {
   const uid = params?.uid
   const fetchLatest = async () => {
-    const data = await request({ url: '/user/playlist', method: 'get', params })
-    if (uid && data?.playlist) {
-      cacheUserPlaylists(uid, data.playlist).catch(() => {})
+    const key = String(uid)
+    const token = (playlistRequests.get(key) || 0) + 1
+    playlistRequests.set(key, token)
+    const data = await request({ url: '/user/playlist', method: 'get', params: {
+      ...params, ...(forceRefresh ? { timestamp: Date.now() } : {})
+    } })
+    requireApiSuccess(data, '加载歌单失败')
+    if (uid && data?.playlist && token === playlistRequests.get(key)) {
+      await cacheUserPlaylists(uid, data.playlist).catch(() => {})
     }
     return data
   }
 
-  if (!uid) return fetchLatest()
+  if (!uid || forceRefresh) return fetchLatest()
 
-  return getUserPlaylistsFromCache(uid).then(async cached => {
+  return getUserPlaylistsFromCache(uid).catch(() => null).then(async cached => {
     if (cached) {
       if (cached.stale) fetchLatest().catch(() => {})
       return { playlist: cached.playlists }

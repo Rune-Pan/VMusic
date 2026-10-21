@@ -361,11 +361,16 @@
           </div>
         </div>
 
-        <!-- 专辑（纯展示，不可点） -->
+        <!-- 专辑详情入口 -->
         <div v-if="activeTab === 'albums'" class="albums-section">
           <div class="albums-grid">
-            <!-- ponytail: 专辑点击待专辑页建成后接入 -->
-            <div v-for="album in albums" :key="album.id" class="album-card">
+            <RouterLink
+              v-for="album in albums"
+              :key="album.id"
+              class="album-card"
+              :aria-label="album.name"
+              :to="{ name: 'album', params: { id: album.id } }"
+            >
               <div class="album-cover-wrapper">
                 <img
                   :src="albumCover(album)"
@@ -376,7 +381,7 @@
               </div>
               <div class="album-name text-ellipsis">{{ album.name }}</div>
               <div class="album-year text-ellipsis">{{ albumYear(album) }}</div>
-            </div>
+            </RouterLink>
           </div>
           <div
             v-if="albumsError"
@@ -552,7 +557,9 @@
     gap: var(--spacing-lg);
   }
   .album-card {
-    cursor: default;
+    display: block;
+    cursor: pointer;
+    outline-offset: 4px;
   }
   .album-cover-wrapper {
     width: 100%;

@@ -5,6 +5,7 @@ import { usePlayerStore } from '@/stores/player'
 import { getMP3, getTrackDetail, scrobble } from '@/api/track'
 import { clearTrackSource } from '@/utils/db'
 import { STORAGE_KEYS } from '@/constants'
+import { Howler } from 'howler'
 
 const audio = vi.hoisted(() => ({ instances: [] }))
 vi.mock('howler', () => ({
@@ -105,6 +106,67 @@ beforeEach(() => {
   player = usePlayerStore()
 })
 afterEach(() => disposePinia(pinia))
+
+describe('音量、登出与用户插队', () => {
+  it('静音切歌后恢复音量，音轨不保留静音或二次缩放', async () => {
+    player.setVolume(0)
+    await start()
+    player.setVolume(0.8)
+    expect(latest().options.volume).toBe(1)
+    expect(Howler.volume).toHaveBeenLastCalledWith(0.8)
+  })
+
+  it('退出时作废尚未完成的音源并保留暂停位置和队列', async () => {
+    await start()
+    player.seek(12000)
+    const pending = deferred()
+    getMP3.mockReturnValueOnce(pending.promise)
+    const task = player.next()
+    await flushPromises()
+    const count = audio.instances.length
+    player.suspend()
+    pending.resolve({ data: [{ url: 'https://audio/late' }] })
+    await task
+    expect(audio.instances).toHaveLength(count)
+    expect(player.playing).toBe(false)
+    expect(player.isLoading).toBe(false)
+    expect(player.wantsPlay).toBe(false)
+    expect(player.playlist).toHaveLength(3)
+  })
+
+  it('退出停止已播放音轨，保存实际暂停位置', async () => {
+    await start()
+    latest().seconds = 23
+    player.suspend()
+    expect(latest().audible).toBe(false)
+    expect(saved().progressMs).toBe(23000)
+    expect(player.currentTrack.id).toBe(1)
+  })
+
+  it('空队列插队建立可见的暂停首曲，点击继续可播放', async () => {
+    player.playNext(track(2))
+    expect(player.hasTrack).toBe(true)
+    expect(player.currentIndex).toBe(0)
+    expect(player.playing).toBe(false)
+    expect(audio.instances).toHaveLength(0)
+    await player.resume()
+    expect(player.currentTrack.id).toBe(2)
+    expect(getMP3).toHaveBeenCalledWith(2, undefined, { forceRefresh: false })
+  })
+
+  it('随机模式明确插队优先一次，移除待播歌曲后不再强制播放它', async () => {
+    await start()
+    player.toggleShuffle()
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    player.playNext(track(4))
+    await player.next()
+    expect(player.currentTrack.id).toBe(4)
+    player.playNext(track(5))
+    await player.removeFromPlaylist(player.playlist.findIndex(t => t.id === 5))
+    await player.next()
+    expect(player.currentTrack.id).not.toBe(5)
+  })
+})
 
 describe('最新选择和真实音频事件', () => {
   it('详情乱序时，只有最后选择可以获取音源和写入当前状态', async () => {

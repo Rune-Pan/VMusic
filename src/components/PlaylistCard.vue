@@ -3,13 +3,14 @@
   import { Music } from '@/components/icons'
 
   const props = defineProps({
-    playlist: { type: Object, required: true }
+    playlist: { type: Object, required: true },
+    local: { type: Boolean, default: false }
   })
 
   const router = useRouter()
 
   function goToPlaylist() {
-    router.push({ name: 'playlist', params: { id: props.playlist.id } })
+    router.push({ name: props.local ? 'local-playlist' : 'playlist', params: { id: props.playlist.id } })
   }
 </script>
 

@@ -1,7 +1,6 @@
 import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useMusicStore } from '@/stores/music'
-import { userPlaylist } from '@/api/user'
 import { STORAGE_KEYS } from '@/constants'
 
 // 默认配置：总开关关，子项默认全开（总开关开时生效）
@@ -72,7 +71,7 @@ export async function runPreload() {
   }
   if (cfg.items.playlists) {
     tasks.push(
-      userPlaylist({ uid: userStore.userInfo.id, limit: 50 }).catch(() => {})
+      musicStore.fetchUserPlaylists(userStore.userInfo.id).catch(() => {})
     )
   }
   await Promise.allSettled(tasks)

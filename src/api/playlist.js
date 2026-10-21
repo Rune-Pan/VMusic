@@ -1,11 +1,20 @@
 import { mapTrackPlayableStatus } from '@/utils/common'
 import request from '@/utils/request'
+import { requireApiSuccess } from '@/utils/apiResult'
 import {
   cachePlaylistDetail,
   getPlaylistDetailFromCache,
   cacheMisc,
-  getMiscFromCache
+  getMiscFromCache,
+  invalidatePlaylistDetail
 } from '@/utils/db'
+
+const detailRequests = new Map()
+export function invalidatePlaylistCache(id) {
+  const key = String(id)
+  detailRequests.set(key, (detailRequests.get(key) || 0) + 1)
+  return invalidatePlaylistDetail(id)
+}
 
 export function recommendPlaylist(params) {
   // SWR：命中未过期直接返回；过期返回旧值 + 后台刷新；未命中等网络
@@ -36,19 +45,22 @@ export function getPlaylistDetail(id, noCache = false) {
   // noCache=true（用户主动强制刷新）：跳过本地缓存直接请求
   const fetchLatest = async () => {
     const params = { id }
+    const key = String(id)
+    const token = (detailRequests.get(key) || 0) + 1
+    detailRequests.set(key, token)
     params.timestamp = Date.now()
     const data = await request({
       url: '/playlist/detail',
       method: 'get',
       params
     })
-    if (data.playlist) {
+    if (data.playlist && token === detailRequests.get(key)) {
       data.playlist.tracks = mapTrackPlayableStatus(
         data.playlist.tracks,
         data.privileges || []
       )
       // 写入 IDB 缓存
-      cachePlaylistDetail(
+      await cachePlaylistDetail(
         id,
         data.playlist,
         data.playlist.tracks,
@@ -60,11 +72,11 @@ export function getPlaylistDetail(id, noCache = false) {
 
   if (noCache) return fetchLatest()
 
-  return getPlaylistDetailFromCache(id).then(async cached => {
+  return getPlaylistDetailFromCache(id).catch(() => null).then(async cached => {
     if (cached) {
       // 过期才后台刷新
       if (cached.stale) fetchLatest().catch(() => {})
-      return { playlist: cached.playlist }
+      return { playlist: { ...cached.playlist, tracks: cached.tracks || cached.playlist.tracks } }
     }
     return fetchLatest()
   })
@@ -130,6 +142,7 @@ export function dailyRecommendTracks() {
 export function createPlaylist(params) {
   params.timestamp = new Date().getTime()
   return request({ url: '/playlist/create', method: 'post', params })
+    .then(data => requireApiSuccess(data, '创建歌单失败'))
 }
 
 // 参考 YesPlayMusic playlist_delete API
@@ -137,6 +150,7 @@ export function createPlaylist(params) {
 export function deletePlaylist(params) {
   params.timestamp = new Date().getTime()
   return request({ url: '/playlist/delete', method: 'post', params })
+    .then(data => requireApiSuccess(data, '删除歌单失败'))
 }
 
 // 添加歌曲到歌单
@@ -144,6 +158,22 @@ export function deletePlaylist(params) {
 export function addTracksToPlaylist(params) {
   params.timestamp = Date.now()
   return request({ url: '/playlist/tracks', method: 'post', params })
+    .then(data => requireApiSuccess(data, '修改歌单歌曲失败'))
+}
+
+export function updatePlaylistName(id, name) {
+  return request({ url: '/playlist/name/update', method: 'post', params: { id, name, timestamp: Date.now() } })
+    .then(data => requireApiSuccess(data, '修改歌单名称失败'))
+}
+
+export function updatePlaylistDescription(id, desc) {
+  return request({ url: '/playlist/desc/update', method: 'post', params: { id, desc, timestamp: Date.now() } })
+    .then(data => requireApiSuccess(data, '修改歌单简介失败'))
+}
+
+export function subscribePlaylist(id, subscribed) {
+  return request({ url: '/playlist/subscribe', method: 'post', params: { id, t: subscribed ? 1 : 2, timestamp: Date.now() } })
+    .then(data => requireApiSuccess(data, '收藏操作失败'))
 }
 
 // 获取歌单评论

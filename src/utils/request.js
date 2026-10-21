@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { isSessionExpired } from './apiResult'
 
 const baseURL = import.meta.env.VITE_NETEASE_API_URL || '/api'
 
@@ -8,15 +9,22 @@ const request = axios.create({
   timeout: 15000
 })
 
+function expireSession(response) {
+  if (isSessionExpired(response?.data) && response.config?.url !== '/user/account') {
+    window.dispatchEvent(new Event('vmusic:session-expired'))
+  }
+}
+
 request.interceptors.response.use(
-  response => response.data,
+  response => {
+    expireSession(response)
+    return response.data
+  },
   error => {
-    if (
-      error.response?.data?.code === 301 &&
-      error.response?.data?.msg === '需要登录'
-    ) {
-      console.warn('登录已过期，请重新登录')
-    }
+    expireSession(error.response)
+    const data = error.response?.data
+    const message = data?.message || data?.msg || data?.body?.message || data?.body?.msg
+    if (typeof message === 'string') error.message = message
     return Promise.reject(error)
   }
 )

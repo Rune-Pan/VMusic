@@ -1,7 +1,7 @@
 <script setup>
   // 参考 YesPlayMusic src/views/playlist.vue
-  import { ref, computed, watch } from 'vue'
-  import { useRoute } from 'vue-router'
+  import { ref, computed, watch, onUnmounted } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
   import { Play, MessageSquareText, Share2 } from '@/components/icons'
   import { usePlayerStore } from '@/stores/player'
   import { useMusicStore } from '@/stores/music'
@@ -10,18 +10,24 @@
   import { getPlaylistDetail } from '@/api/playlist'
   import { getTrackDetail } from '@/api/track'
   import { resizeImage } from '@/utils/common'
-  import { cachePlaylistDetail } from '@/utils/db'
   import { IMAGE_SIZE_LARGE } from '@/constants'
   import TrackList from '@/components/TrackList.vue'
   import CommentModal from '@/components/CommentModal.vue'
+  import PlaylistFormModal from '@/components/PlaylistFormModal.vue'
 
   const route = useRoute()
+  const router = useRouter()
   const playerStore = usePlayerStore()
   const musicStore = useMusicStore()
   const userStore = useUserStore()
   const uiStore = useUiStore()
 
   const playlist = ref(null)
+  const local = computed(() => route.meta.localPlaylist === true)
+  const editing = ref(false)
+  const mutating = ref(false)
+  const loadError = ref('')
+  let loadGeneration = 0
   const showCommentModal = ref(false)
   const tracks = ref([])
   const loading = ref(true)
@@ -30,35 +36,47 @@
   let lastLoadedTrackIndex = 0
 
   const coverUrl = computed(() =>
-    resizeImage(playlist.value?.coverImgUrl, IMAGE_SIZE_LARGE)
+    resizeImage(playlist.value?.coverImgUrl || playlist.value?.coverUrl, IMAGE_SIZE_LARGE)
   )
   const isUserOwnPlaylist = computed(() => {
-    return playlist.value?.creator?.userId === userStore.userInfo.id
+    return !local.value && playlist.value?.creator && String(playlist.value.creator.userId) === String(userStore.userInfo.id)
   })
 
   // 参考 YesPlayMusic loadData
+  const canManage = computed(() => isUserOwnPlaylist.value && playlist.value?.specialType !== 5)
+
   // 缓存由 api 层 getPlaylistDetail 的 SWR + IDB 承担（见 src/utils/db.js）
-  async function loadData(id) {
+  async function loadData(id, force = false) {
+    const token = ++loadGeneration
     loading.value = true
+    loadError.value = ''
+    hasMore.value = false
+    playlist.value = null
+    tracks.value = []
     try {
-      const data = await getPlaylistDetail(id)
+      const data = local.value
+        ? { playlist: musicStore.userPlaylists.find(p => String(p.id) === String(id)) }
+        : await getPlaylistDetail(id, force)
+      if (token !== loadGeneration) return
+      if (!data.playlist) throw new Error('歌单不存在或暂时不可访问')
       playlist.value = data.playlist
       tracks.value = data.playlist.tracks || []
       lastLoadedTrackIndex = tracks.value.length - 1
-      // 参考 YesPlayMusic：如果歌曲未完全加载，继续加载更多
-      if (playlist.value.trackCount > tracks.value.length) {
-        loadingMore.value = true
+      if (!local.value && data.playlist.trackCount > tracks.value.length) {
         await loadMore()
       }
     } catch (e) {
-      console.error('Failed to load playlist:', e)
+      if (token === loadGeneration) loadError.value = e.message || '歌单加载失败，请重试'
+    } finally {
+      if (token === loadGeneration) loading.value = false
     }
-    loading.value = false
   }
 
   // 参考 YesPlayMusic loadMore
   async function loadMore(loadNum = 100) {
-    if (!playlist.value?.trackIds) return
+    if (!playlist.value?.trackIds || loadingMore.value) return
+    const token = loadGeneration
+    loadingMore.value = true
     const trackIDs = playlist.value.trackIds
       .filter(
         (_t, index) =>
@@ -73,13 +91,17 @@
     }
     try {
       const data = await getTrackDetail(trackIDs.join(','))
+      if (token !== loadGeneration) return
       tracks.value.push(...(data.songs || []))
       lastLoadedTrackIndex += trackIDs.length
       hasMore.value = lastLoadedTrackIndex + 1 < playlist.value.trackIds.length
-    } catch (e) {
-      console.error('Failed to load more tracks:', e)
+    } catch {
+      if (token === loadGeneration) {
+        hasMore.value = true
+        uiStore.showToast('曲目加载失败，可点击加载更多重试', 'error')
+      }
     }
-    loadingMore.value = false
+    if (token === loadGeneration) loadingMore.value = false
   }
 
   function playAll() {
@@ -93,16 +115,44 @@
     showCommentModal.value = true
   }
 
-  function handleRemoveTrack(track) {
-    musicStore.removeTrackFromPlaylist(playlist.value.id, track.id)
-    tracks.value = tracks.value.filter(t => t.id !== track.id)
-    // 同步 IDB 缓存，避免返回后仍显示已删除歌曲
-    cachePlaylistDetail(
-      playlist.value.id,
-      playlist.value,
-      tracks.value,
-      playlist.value.subscribed || false
-    ).catch(() => {})
+  async function handleRemoveTrack(track) {
+    if (!canManage.value || mutating.value) return
+    const id = playlist.value.id
+    const confirmed = await uiStore.showConfirm({ title: '从网易云歌单移除', message: `确定将「${track.name}」从这个云歌单移除？`, confirmText: '移除' })
+    if (!confirmed) return
+    await mutate(() => musicStore.changePlaylistTracks(id, [track.id], 'del'))
+  }
+
+  async function mutate(write, deleted = false) {
+    if (mutating.value) return
+    const id = playlist.value.id
+    const token = loadGeneration
+    const uid = userStore.userInfo.id
+    mutating.value = true
+    try {
+      await write()
+      if (token !== loadGeneration || uid !== userStore.userInfo.id) return
+      uiStore.showToast('网易云歌单已更新', 'success')
+      if (deleted) await router.push({ name: 'profile' })
+      else await loadData(id, true)
+    } catch (e) {
+      if (token === loadGeneration && uid === userStore.userInfo.id) uiStore.showToast(e.message || '操作失败，请重试', 'error')
+    } finally { mutating.value = false }
+  }
+
+  async function deletePlaylist() {
+    if (!canManage.value || mutating.value) return
+    const id = playlist.value.id
+    const confirmed = await uiStore.showConfirm({ title: '删除网易云歌单', message: `确定删除「${playlist.value.name}」？此操作将删除云端歌单。`, confirmText: '删除歌单' })
+    if (confirmed) await mutate(() => musicStore.deletePlaylist(id), true)
+  }
+
+  async function toggleSubscribed() {
+    if (local.value || isUserOwnPlaylist.value || mutating.value) return
+    const id = playlist.value.id
+    const subscribed = !playlist.value.subscribed
+    if (!subscribed && !await uiStore.showConfirm({ title: '取消收藏', message: `取消收藏「${playlist.value.name}」？`, confirmText: '取消收藏' })) return
+    await mutate(() => musicStore.setPlaylistSubscribed(id, subscribed))
   }
 
   async function sharePlaylist() {
@@ -117,12 +167,20 @@
   }
 
   watch(
-    () => route.params.id,
-    newId => {
+    () => musicStore.playlistChanges[route.params.id],
+    () => {
+      if (!local.value && !mutating.value && playlist.value) loadData(route.params.id, true)
+    }
+  )
+  watch(
+    () => [route.name, route.params.id],
+    ([, newId]) => {
+      loadingMore.value = false
       if (newId) loadData(newId)
     },
     { immediate: true }
   )
+  onUnmounted(() => { loadGeneration++ })
 </script>
 
 <template>
@@ -150,7 +208,7 @@
             <span class="creator-name">{{ playlist.creator.nickname }}</span>
           </div>
           <div class="meta">
-            <span>{{ playlist.trackCount }} 首歌曲</span>
+            <span>{{ local ? tracks.length : playlist.trackCount }} 首歌曲</span>
             <span v-if="playlist.playCount">
               · 播放 {{ playlist.playCount }}
             </span>
@@ -158,19 +216,23 @@
           <div class="description" v-if="playlist.description">
             {{ playlist.description }}
           </div>
-          <div class="buttons">
+          <p v-if="local" class="description">本机历史歌单 · 只读，不会自动上传网易云。</p>
+          <div class="buttons" :aria-busy="mutating">
             <button class="play-all-btn" @click="playAll">
               <Play :size="20" />
               <span>播放全部</span>
             </button>
-            <button class="action-btn" @click="openComments">
+            <button v-if="!local" class="action-btn" @click="openComments">
               <MessageSquareText :size="16" />
               <span>评论</span>
             </button>
-            <button class="action-btn" @click="sharePlaylist">
+            <button v-if="!local" class="action-btn" @click="sharePlaylist">
               <Share2 :size="16" />
               <span>分享</span>
             </button>
+            <button v-if="canManage" class="action-btn" :disabled="mutating" @click="editing = true">编辑歌单</button>
+            <button v-if="canManage" class="action-btn" :disabled="mutating" @click="deletePlaylist">删除歌单</button>
+            <button v-if="!local && !isUserOwnPlaylist" class="action-btn" :disabled="mutating" @click="toggleSubscribed">{{ playlist.subscribed ? '取消收藏' : '收藏歌单' }}</button>
           </div>
         </div>
       </div>
@@ -180,7 +242,7 @@
         <h2 class="section-title">歌曲列表</h2>
         <TrackList
           :tracks="tracks"
-          :show-remove="isUserOwnPlaylist"
+          :show-remove="canManage && !mutating"
           @remove="handleRemoveTrack"
         />
         <div v-if="tracks.length === 0" class="empty-state">暂无歌曲</div>
@@ -199,9 +261,11 @@
     </div>
 
     <div v-else class="empty-state">
-      <p>歌单不存在</p>
+      <p role="alert">{{ loadError || '歌单不存在' }}</p>
+      <button class="action-btn" @click="loadData(route.params.id, true)">重新加载</button>
     </div>
 
+    <PlaylistFormModal :visible="editing" :playlist="playlist" @close="editing = false" @saved="loadData(route.params.id, true)" />
     <CommentModal
       :visible="showCommentModal"
       type="playlist"

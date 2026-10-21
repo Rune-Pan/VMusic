@@ -123,16 +123,14 @@
     },
     { path: '/profile', name: 'profile', label: '个人中心', icon: User }
   ]
-  const searchKeyword = ref('')
+  const searchKeyword = ref(musicStore.searchKeyword)
   const showUserMenu = ref(false)
 
-  // store 清空时同步本地搜索框（如点击搜索结果播放后 SearchResultsOverlay 调 clearSearch）
+  // 搜索返回及清空时同步顶部输入框。
   watch(
     () => musicStore.searchKeyword,
     kw => {
-      if (kw === '' && searchKeyword.value !== '') {
-        searchKeyword.value = ''
-      }
+      searchKeyword.value = kw
     }
   )
 

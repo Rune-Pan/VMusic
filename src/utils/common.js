@@ -74,6 +74,13 @@ export function setCookies(string) {
   })
 }
 
+// 登录恢复仅接受站内路径，避免重定向回登录页。
+export function getLoginRedirect(value) {
+  return typeof value === 'string' && value.startsWith('/') &&
+    !value.startsWith('//') && !/^\/login(?:[/?#]|$)/.test(value)
+    ? value : '/'
+}
+
 // 格式化时长：毫秒 → "m:ss"
 export function formatDuration(ms) {
   if (!ms || isNaN(ms)) return '0:00'

@@ -27,6 +27,7 @@ export const usePlayerStore = defineStore('player', () => {
   const currentIndex = ref(-1)
   const repeatMode = ref('off')
   const shuffleMode = ref(false)
+  let queuedNextId = null
   const isLoading = ref(false)
   const playHistory = ref([])
   const actualDuration = ref(0)
@@ -54,6 +55,7 @@ export const usePlayerStore = defineStore('player', () => {
           volumeBeforeMuted: volumeBeforeMuted.value,
           repeatMode: repeatMode.value,
           shuffleMode: shuffleMode.value,
+          queuedNextId,
           currentTrack: currentTrack.value,
           playlist: playlist.value,
           currentIndex: currentIndex.value,
@@ -130,6 +132,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function nextIndex(attempted = new Set()) {
+    const queued = playlist.value.findIndex(track => sameTrack(track.id, queuedNextId))
+    if (queued >= 0 && !attempted.has(String(queuedNextId))) return queued
     if (shuffleMode.value && playlist.value.length > 1) {
       const candidates = playlist.value
         .map((track, index) => ({ track, index }))
@@ -202,12 +206,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   function createSound(source, request) {
     releaseSound()
+    Howler.volume(volume.value)
     const instance = new Howl({
       src: [source],
       html5: true,
       preload: true,
       format: ['mp3', 'flac'],
-      volume: volume.value,
+      volume: 1,
       onload() {
         if (!isActive()) return
         isLoading.value = false
@@ -296,6 +301,7 @@ export const usePlayerStore = defineStore('player', () => {
   async function selectTrack(index, { run = null, startAt = 0 } = {}) {
     const track = playlist.value[index]
     if (!track) return
+    if (sameTrack(track.id, queuedNextId)) queuedNextId = null
     reportCurrent()
     const request = {
       token: ++generation,
@@ -345,6 +351,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   async function play(track, list = []) {
     if (!validTrack(track)) return
+    if (list !== playlist.value) queuedNextId = null
     const index = list.findIndex(item => sameTrack(item.id, track.id))
     playlist.value = index >= 0 ? [...list] : [track]
     await selectTrack(index >= 0 ? index : 0)
@@ -367,6 +374,14 @@ export const usePlayerStore = defineStore('player', () => {
     if (sound?.state() === 'loaded') sound.play()
     else if (!isLoading.value)
       return selectTrack(currentIndex.value, { startAt: progress.value })
+  }
+
+  function suspend() {
+    pause()
+    generation++
+    activeRequest = null
+    isLoading.value = false
+    releaseSound()
   }
 
   function togglePlay() {
@@ -417,6 +432,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   async function setPlaylist(list, startIndex = 0) {
+    queuedNextId = null
     if (!list.length) {
       generation++
       activeRequest = null
@@ -444,12 +460,19 @@ export const usePlayerStore = defineStore('player', () => {
     filtered.splice(index + 1, 0, track)
     playlist.value = filtered
     currentIndex.value = index
+    if (index < 0) {
+      currentIndex.value = 0
+      currentTrack.value = track
+      progress.value = 0
+      actualDuration.value = 0
+    } else queuedNextId = track.id
     persist()
   }
 
   async function removeFromPlaylist(index) {
     if (index < 0 || index >= playlist.value.length) return
     const wasCurrent = index === currentIndex.value
+    if (sameTrack(playlist.value[index].id, queuedNextId)) queuedNextId = null
     playlist.value.splice(index, 1)
     if (!playlist.value.length) return setPlaylist([])
     if (wasCurrent)
@@ -492,6 +515,7 @@ export const usePlayerStore = defineStore('player', () => {
           ? data.repeatMode
           : 'off'
         shuffleMode.value = data.shuffleMode === true
+        queuedNextId = data.queuedNextId ?? null
         playlist.value = Array.isArray(data.playlist)
           ? data.playlist.filter(validTrack)
           : []
@@ -562,6 +586,7 @@ export const usePlayerStore = defineStore('player', () => {
     progressPercent,
     play,
     pause,
+    suspend,
     resume,
     togglePlay,
     next,

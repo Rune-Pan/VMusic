@@ -1,20 +1,17 @@
 ﻿<script setup>
-  import GlassSurface from '@/components/GlassSurface.vue'
-  import { useEscClose } from '@/composables/useEscClose'
-  import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+  import PlaylistFormModal from '@/components/PlaylistFormModal.vue'
+  import { ref, computed, onMounted, watch, nextTick } from 'vue'
   import {
     Plus,
     Music,
     Settings,
     LogOut,
-    X,
     History,
     Trash2,
     Heart,
     Play,
     Crown
   } from '@/components/icons'
-  import { userPlaylist } from '@/api/user'
   import { useUserStore } from '@/stores/user'
   import { useMusicStore } from '@/stores/music'
   import { useUiStore } from '@/stores/ui'
@@ -190,17 +187,9 @@
 
   const activeMenu = ref('liked')
   const showPlaylistForm = ref(false)
-  useEscClose(
-    () => showPlaylistForm.value,
-    () => {
-      showPlaylistForm.value = false
-    }
-  )
-  const editingPlaylist = ref(null)
   // 播放历史模式：'local' | 'week' | 'all'（参考 YesPlayMusic playHistoryMode）
   const historyMode = ref('local')
 
-  const playlistForm = reactive({ name: '', description: '' })
   // 音质偏好（参考上游 YesPlayMusic musicQuality）
   const musicQuality = ref(
     Number(localStorage.getItem(STORAGE_KEYS.MUSIC_QUALITY)) ||
@@ -282,8 +271,8 @@
   }
 
   // 网易云歌单
-  const serverPlaylists = ref([])
-  const serverPlaylistsLoading = ref(false)
+  const serverPlaylists = computed(() => musicStore.serverPlaylists || [])
+  const serverPlaylistsLoading = computed(() => musicStore.playlistsLoading)
 
   // 按创建者分类：自己创建的 vs 收藏他人的
   const createdPlaylists = computed(() =>
@@ -297,17 +286,10 @@
     )
   )
 
-  async function fetchServerPlaylists() {
-    if (!userStore.isLoggedIn || !userStore.userInfo.id) return
-    serverPlaylistsLoading.value = true
-    try {
-      const data = await userPlaylist({ uid: userStore.userInfo.id, limit: 50 })
-      serverPlaylists.value = data.playlist || []
-    } catch (e) {
-      console.error('Failed to load server playlists:', e)
-    } finally {
-      serverPlaylistsLoading.value = false
-    }
+  async function fetchServerPlaylists(force = false) {
+    if (!userStore.isLoggedIn) return
+    try { await musicStore.fetchUserPlaylists(userStore.userInfo.id, force) }
+    catch { /* 页面展示可重试错误 */ }
   }
 
   function clearHistory() {
@@ -338,36 +320,7 @@
   }
 
   function openCreateForm() {
-    editingPlaylist.value = null
-    playlistForm.name = ''
-    playlistForm.description = ''
     showPlaylistForm.value = true
-  }
-
-  async function submitPlaylistForm() {
-    if (!playlistForm.name.trim()) {
-      uiStore.showToast('请输入歌单名称', 'warning')
-      return
-    }
-    if (editingPlaylist.value) {
-      musicStore.updatePlaylist(editingPlaylist.value.id, {
-        name: playlistForm.name,
-        description: playlistForm.description
-      })
-      uiStore.showToast('歌单已更新', 'success')
-    } else {
-      try {
-        await musicStore.createPlaylist(
-          playlistForm.name,
-          playlistForm.description
-        )
-        uiStore.showToast('歌单已创建，已同步到网易云', 'success')
-      } catch (e) {
-        uiStore.showToast(e.message || '创建歌单失败', 'error')
-        return
-      }
-    }
-    showPlaylistForm.value = false
   }
 
   async function logout() {
@@ -483,6 +436,11 @@
             </button>
           </div>
 
+          <div v-if="musicStore.playlistsError" role="alert">
+            <p>{{ musicStore.playlistsError }}</p>
+            <button class="create-btn" :disabled="serverPlaylistsLoading" @click="fetchServerPlaylists(true)">重新加载歌单</button>
+          </div>
+
           <!-- 创建的歌单 -->
           <div v-if="createdPlaylists.length > 0" class="playlist-section">
             <div class="playlist-section-title">创建</div>
@@ -518,6 +476,14 @@
                   trackCount: playlist.trackCount
                 }"
               />
+            </div>
+          </div>
+
+          <div v-if="musicStore.userPlaylists?.length" class="playlist-section">
+            <h2 class="playlist-section-title">本机历史歌单 · 只读</h2>
+            <p class="sidebar-settings-help">这些记录保存在本机，可查看和播放，不会自动上传网易云。</p>
+            <div class="playlist-list">
+              <PlaylistCard v-for="playlist in musicStore.userPlaylists" :key="'local-' + playlist.id" :playlist="playlist" local />
             </div>
           </div>
 
@@ -920,58 +886,7 @@
       </main>
     </div>
 
-    <transition name="fade">
-      <div
-        v-if="showPlaylistForm"
-        class="modal-overlay"
-        @click.self="showPlaylistForm = false"
-      >
-        <GlassSurface class="modal-card" modal label="歌单表单">
-          <div class="modal-header">
-            <h3>{{ editingPlaylist ? '编辑歌单' : '新建歌单' }}</h3>
-            <button
-              class="close-btn"
-              aria-label="关闭歌单表单"
-              @click="showPlaylistForm = false"
-            >
-              <X :size="20" />
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label class="form-label" for="playlist-name">歌单名称</label>
-              <input
-                v-model="playlistForm.name"
-                id="playlist-name"
-                type="text"
-                placeholder="请输入歌单名称"
-                class="form-input"
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="playlist-description">
-                歌单简介
-              </label>
-              <textarea
-                v-model="playlistForm.description"
-                id="playlist-description"
-                placeholder="请输入歌单简介"
-                class="form-textarea"
-                rows="3"
-              ></textarea>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancel" @click="showPlaylistForm = false">
-              取消
-            </button>
-            <button class="btn-confirm" @click="submitPlaylistForm">
-              确认
-            </button>
-          </div>
-        </GlassSurface>
-      </div>
-    </transition>
+    <PlaylistFormModal :visible="showPlaylistForm" @close="showPlaylistForm = false" />
   </div>
 </template>
 
@@ -1276,16 +1191,6 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
-  .form-group {
-    margin-bottom: var(--spacing-lg);
-  }
-  .form-label {
-    display: block;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--color-text);
-    margin-bottom: var(--spacing-sm);
-  }
   .toggle-row {
     display: flex;
     align-items: center;
@@ -1340,98 +1245,6 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
-  .form-input {
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-secondary-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    font-size: 14px;
-    color: var(--color-text);
-    font-family: inherit;
-    outline: none;
-  }
-
-  .form-textarea {
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-secondary-bg);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    font-size: 14px;
-    color: var(--color-text);
-    font-family: inherit;
-    resize: vertical;
-    outline: none;
-  }
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: var(--color-overlay);
-    backdrop-filter: blur(4px);
-    z-index: var(--z-modal);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-md);
-  }
-  .modal-card {
-    width: 100%;
-    max-width: 440px;
-    background: var(--color-modal-bg);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-xl);
-  }
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-lg) var(--spacing-xl);
-    border-bottom: 1px solid var(--color-border-light);
-  }
-  .modal-header h3 {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--color-text);
-  }
-  .close-btn {
-    color: var(--color-text-muted);
-    padding: 4px;
-  }
-  .close-btn:hover {
-    color: var(--color-text);
-  }
-  .modal-body {
-    padding: var(--spacing-xl);
-  }
-  .modal-footer {
-    display: flex;
-    gap: var(--spacing-sm);
-    justify-content: flex-end;
-    padding: var(--spacing-lg) var(--spacing-xl);
-    border-top: 1px solid var(--color-border-light);
-  }
-  .btn-cancel {
-    padding: var(--spacing-sm) var(--spacing-lg);
-    border: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
-    border-radius: var(--radius-md);
-    font-size: 14px;
-  }
-  .btn-cancel:hover {
-    background: var(--color-secondary-bg-hover);
-  }
-  .btn-confirm {
-    padding: var(--spacing-sm) var(--spacing-lg);
-    background: var(--color-primary);
-    color: #ffffff;
-    border-radius: var(--radius-md);
-    font-size: 14px;
-  }
-  .btn-confirm:hover {
-    background: var(--color-primary-hover);
-  }
-
   /* 快捷键设置 */
   .shortcuts-section {
     margin-top: var(--spacing-md);
