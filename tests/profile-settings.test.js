@@ -21,6 +21,7 @@ vi.mock('@/composables/usePreload', () => ({
 }))
 vi.mock('@/composables/useSidebarAutoHide', () => ({ useSidebarAutoHide: () => state.sidebar }))
 vi.mock('@/composables/useSidebarCollapse', () => ({ useSidebarCollapse: () => state.collapse }))
+vi.mock('@/composables/useCoverRotation', () => ({ useCoverRotation: () => state.rotation }))
 
 let wrapper, shell, container
 beforeEach(() => {
@@ -37,6 +38,7 @@ beforeEach(() => {
   state.player = { playHistory: [], play: vi.fn(), togglePlay: vi.fn(), prev: vi.fn(), next: vi.fn() }
   state.ui = { showToast: vi.fn(), showConfirm: vi.fn() }
   state.collapse = { collapsed: ref(false), setCollapsed: vi.fn() }
+  state.rotation = { enabled: ref(false), secondsPerTurn: ref(8), setEnabled: vi.fn(), setSecondsPerTurn: vi.fn() }
   state.theme = { theme: ref('dark'), themeColor: ref('blue'), setTheme: vi.fn(), setThemeColor: vi.fn() }
   state.preload = { config: ref({ enabled: false, items: { dailyRecommend: true } }), setEnabled: vi.fn(), setItem: vi.fn() }
   state.sidebar = { enabled: ref(false), triggerWidth: ref(16), hideDelay: ref(350), setEnabled: vi.fn(), setTriggerWidth: vi.fn(), setHideDelay: vi.fn() }
@@ -190,4 +192,24 @@ it('折叠开关在自动隐藏开启后仍可用，且仅更新折叠偏好', a
   expect(state.collapse.setCollapsed).toHaveBeenCalledExactlyOnceWith(true)
   expect(state.sidebar.setEnabled).not.toHaveBeenCalled()
   expect(wrapper.get('#sidebar-collapsed').attributes('disabled')).toBeUndefined()
+})
+
+it('旋转设置位于播放分类，滑块仅开启时显示并使用原生范围控件', async () => {
+  await open('playback')
+  expect(wrapper.get('label[for="settings-cover-rotation"]').isVisible()).toBe(true)
+  expect(wrapper.find('#settings-cover-seconds').exists()).toBe(false)
+  await wrapper.get('#settings-cover-rotation').setValue(true)
+  expect(state.rotation.setEnabled).toHaveBeenCalledExactlyOnceWith(true)
+  state.rotation.enabled.value = true
+  await flushPromises()
+  const range = wrapper.get('#settings-cover-seconds')
+  expect([range.attributes('min'), range.attributes('max'), range.attributes('step')]).toEqual(['5', '60', '1'])
+  await range.setValue('20')
+  expect(state.rotation.setSecondsPerTurn).toHaveBeenCalledExactlyOnceWith(20)
+  state.rotation.enabled.value = false
+  await flushPromises()
+  expect(wrapper.find('#settings-cover-seconds').exists()).toBe(false)
+  expect(state.player.play).not.toHaveBeenCalled()
+  await tab('appearance').trigger('click')
+  expect(wrapper.get('label[for="settings-cover-rotation"]').isVisible()).toBe(false)
 })

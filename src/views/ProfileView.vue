@@ -40,11 +40,18 @@
   import { getPageScrollContainer, scrollPageTo } from '@/utils/pageScroll'
   import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
   import { useSidebarCollapse } from '@/composables/useSidebarCollapse'
+  import { useCoverRotation } from '@/composables/useCoverRotation'
 
   const userStore = useUserStore()
   const musicStore = useMusicStore()
   const uiStore = useUiStore()
   const playerStore = usePlayerStore()
+  const {
+    enabled: coverRotationEnabled,
+    secondsPerTurn,
+    setEnabled: setCoverRotationEnabled,
+    setSecondsPerTurn
+  } = useCoverRotation()
   const router = useRouter()
   const { theme, setTheme, themeColor, setThemeColor } = useTheme()
   const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } = useSidebarCollapse()
@@ -726,6 +733,34 @@
                 </div>
               </div>
               <div class="form-group">
+                <div class="setting-copy">
+                  <label class="form-label" for="settings-cover-rotation">封面旋转</label>
+                  <p class="cover-rotation-help">播放时转动，暂停时停住；遵循系统减少动态效果设置。</p>
+                </div>
+                <label class="toggle-switch">
+                  <input
+                    id="settings-cover-rotation"
+                    type="checkbox"
+                    :checked="coverRotationEnabled"
+                    @change="setCoverRotationEnabled($event.target.checked)"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+                <div v-if="coverRotationEnabled" class="settings-subsection">
+                  <label class="cover-rotation-range-label" for="settings-cover-seconds">
+                    每圈用时 <output for="settings-cover-seconds">{{ secondsPerTurn }} 秒/圈</output>
+                  </label>
+                  <input
+                    id="settings-cover-seconds"
+                    class="cover-rotation-range"
+                    type="range"
+                    min="5" max="60" step="1"
+                    :value="secondsPerTurn"
+                    @input="setSecondsPerTurn(Number($event.target.value))"
+                  />
+                </div>
+              </div>
+              <div class="form-group">
                 <label class="form-label">歌词字号</label>
                 <div
                   class="quality-segmented"
@@ -1073,12 +1108,14 @@
     color: #ffffff;
     border-color: var(--color-primary);
   }
+  .cover-rotation-help,
   .sidebar-settings-help {
     margin-top: var(--spacing-sm);
     font-size: 12px;
     color: var(--color-text-secondary);
     line-height: 1.6;
   }
+  .cover-rotation-range-label,
   .sidebar-range-label {
     display: flex;
     justify-content: space-between;
@@ -1086,15 +1123,18 @@
     margin-top: var(--spacing-md);
     font-size: 13px;
   }
+  .cover-rotation-range-label output,
   .sidebar-range-label output {
     color: var(--color-text-secondary);
     font-variant-numeric: tabular-nums;
   }
+  .cover-rotation-range,
   .sidebar-range {
     width: 100%;
     min-height: 32px;
     accent-color: var(--color-action-bg);
   }
+  .cover-rotation-range:focus-visible,
   .sidebar-range:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;

@@ -11,6 +11,7 @@
     DEFAULT_LYRIC_FONT_SIZE
   } from '@/constants'
   import { getTrackDetail } from '@/api/track'
+  import { useCoverRotation } from '@/composables/useCoverRotation'
 
   // 歌词翻译开关（参考上游 YesPlayMusic showLyricsTranslation）
   const showLyricsTranslation =
@@ -24,6 +25,46 @@
   const router = useRouter()
   const musicStore = useMusicStore()
   const playerStore = usePlayerStore()
+  const { enabled: coverRotationEnabled, secondsPerTurn } = useCoverRotation()
+  const coverImage = ref(null)
+  const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+  const reducedMotion = ref(motionQuery?.matches ?? false)
+  const shouldRotate = computed(() =>
+    playerStore.playing && !playerStore.isLoading &&
+    Number(playerStore.currentTrack?.id) === Number(route.params.id)
+  )
+  let coverAnimation = null
+
+  function clearCoverAnimation() {
+    coverAnimation?.cancel()
+    coverAnimation = null
+  }
+
+  function syncCoverRotation() {
+    if (!coverRotationEnabled.value || reducedMotion.value || !coverImage.value) {
+      clearCoverAnimation()
+      return
+    }
+    if (coverAnimation?.effect.target !== coverImage.value) {
+      clearCoverAnimation()
+      coverAnimation = coverImage.value.animate(
+        [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }],
+        { duration: 1000, iterations: Infinity, easing: 'linear' }
+      )
+      coverAnimation.pause()
+    }
+    const rate = 1 / secondsPerTurn.value
+    if (coverAnimation.playbackRate !== rate) coverAnimation.updatePlaybackRate(rate)
+    if (shouldRotate.value) coverAnimation.play()
+    else coverAnimation.pause()
+  }
+
+  function onMotionChange(event) {
+    reducedMotion.value = event.matches
+  }
+
+  watch([coverRotationEnabled, secondsPerTurn, shouldRotate, coverImage, reducedMotion],
+    syncCoverRotation, { flush: 'post' })
 
   // 歌词字号偏好（参考上游 YesPlayMusic lyricFontSize）
   const lyricFontSize =
@@ -126,6 +167,7 @@
   }
 
   onMounted(() => {
+    motionQuery?.addEventListener('change', onMotionChange)
     // ESC 退出播放详情页（弹窗优先由 useEscClose 处理，栈空时才到这里）
     window.addEventListener('keydown', onKeydown)
   })
@@ -157,6 +199,8 @@
   )
 
   onUnmounted(() => {
+    clearCoverAnimation()
+    motionQuery?.removeEventListener('change', onMotionChange)
     loadGeneration++
     musicStore.clearLyrics()
     window.removeEventListener('keydown', onKeydown)
@@ -185,8 +229,8 @@
     </button>
     <div class="player-content">
       <div class="left-section">
-        <div class="cover-wrapper">
-          <img :src="coverUrl" :alt="track?.name" class="cover" />
+        <div class="cover-wrapper" :class="{ 'rotation-enabled': coverRotationEnabled }">
+          <img :key="route.params.id" ref="coverImage" :src="coverUrl" :alt="track?.name" class="cover" />
           <div
             class="cover-glow"
             :style="{ backgroundImage: `url(${coverUrl})` }"
@@ -283,6 +327,15 @@
     box-shadow: 0 28px 60px rgb(8 18 35 / 0.25);
     position: relative;
     z-index: 1;
+  }
+  .cover-wrapper.rotation-enabled {
+    overflow: hidden;
+    border-radius: 50%;
+    box-shadow: 0 28px 60px rgb(8 18 35 / 0.25);
+  }
+  .rotation-enabled .cover {
+    border-radius: 0;
+    box-shadow: none;
   }
   .cover-glow {
     display: none;

@@ -14,6 +14,7 @@ export const STORAGE_KEYS = {
   SIDEBAR_AUTO_HIDE: 'vmusic-sidebar-auto-hide',
   SIDEBAR_COLLAPSED: 'vmusic-sidebar-collapsed',
   MUSIC_QUALITY: 'vmusic-music-quality',
+  COVER_ROTATION: 'vmusic-cover-rotation',
   LYRIC_FONT_SIZE: 'vmusic-lyric-font-size',
   SHOW_LYRICS_TRANSLATION: 'vmusic-show-lyrics-translation',
   SHOW_LYRICS_TIME: 'vmusic-show-lyrics-time',
