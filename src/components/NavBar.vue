@@ -11,7 +11,8 @@
     Monitor,
     X,
     CalendarDays,
-    ChartNoAxesColumnIncreasing
+    ChartNoAxesColumnIncreasing,
+    MessageSquareText
   } from '@/components/icons'
   import GlassSurface from '@/components/GlassSurface.vue'
   import { useUserStore } from '@/stores/user'
@@ -120,6 +121,7 @@
       label: '排行榜',
       icon: ChartNoAxesColumnIncreasing
     },
+    { path: '/ai', name: 'ai', label: 'AI 助手', icon: MessageSquareText },
     { path: '/profile', name: 'profile', label: '个人中心', icon: User }
   ]
   const searchKeyword = ref(musicStore.searchKeyword)

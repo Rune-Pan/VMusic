@@ -11,15 +11,15 @@ echo.
 :: Check Node.js
 where node >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [Error] Node.js was not found. Please install Node.js ^22.18.0 or ^>=24.12.0.
+    echo [Error] Node.js was not found. Please install Node.js ^22.19.0 or ^>=24.12.0.
     pause
     exit /b 1
 )
 
 :: Check the supported Node.js version before installing dependencies
-node -e "const [a,b]=process.versions.node.split('.').map(Number); process.exit((a===22 && b>=18)||(a===24 && b>=12)||a>24 ? 0 : 1)"
+node -e "const [a,b]=process.versions.node.split('.').map(Number); process.exit((a===22 && b>=19)||(a===24 && b>=12)||a>24 ? 0 : 1)"
 if %errorlevel% neq 0 (
-    echo [Error] Unsupported Node.js version. Required: ^22.18.0 or ^>=24.12.0.
+    echo [Error] Unsupported Node.js version. Required: ^22.19.0 or ^>=24.12.0.
     node --version
     pause
     exit /b 1
@@ -57,6 +57,7 @@ echo.
 :: Start API server in a new window
 echo [3/3] Starting services...
 start "Tingchao-API" /D "%~dp0NeteaseCloudMusicApi" cmd /k node app.js
+start "Tingchao-AI" /b /D "%~dp0" node server/ai/server.js
 
 :: Wait for API startup
 timeout /t 6 /nobreak >nul

@@ -13,6 +13,7 @@
   import { getTrackDetail } from '@/api/track'
   import { useCoverRotation } from '@/composables/useCoverRotation'
   import { useLyricColors } from '@/composables/useLyricColors'
+  import { useAiStore } from '@/stores/ai'
 
   // 歌词翻译开关（参考上游 YesPlayMusic showLyricsTranslation）
   const showLyricsTranslation =
@@ -26,6 +27,11 @@
   const router = useRouter()
   const musicStore = useMusicStore()
   const playerStore = usePlayerStore()
+  const ai = useAiStore()
+  async function interpretLyrics() {
+    ai.queue('lyrics', { type: 'track', id: Number(route.params.id), title: track.value?.name || '当前歌曲' })
+    try { await router.push('/ai') } catch { ai.takePending() }
+  }
   const { enabled: coverRotationEnabled, secondsPerTurn } = useCoverRotation()
   const coverImage = ref(null)
   const motionQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)')
@@ -248,6 +254,7 @@
           <h1 class="track-name">{{ track?.name || '未知歌曲' }}</h1>
           <div class="track-artist">{{ artistName }}</div>
           <div class="track-album">{{ albumName }}</div>
+          <button class="lyric-ai-link" type="button" @click="interpretLyrics">AI 解读歌词</button>
         </div>
         <div ref="lyricListRef" class="lyric-list">
           <div
@@ -284,6 +291,7 @@
 </template>
 
 <style scoped>
+  .lyric-ai-link { margin-top: 14px; padding: 8px 16px; border-radius: var(--radius-full); color: var(--color-accent-ink); background: var(--color-primary-bg); font-size: 13px; }
   .player-view {
     position: fixed;
     inset: 0;

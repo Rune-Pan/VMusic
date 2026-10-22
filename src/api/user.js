@@ -49,6 +49,12 @@ export function userPlayHistory(params) {
   return request({ url: '/user/record', method: 'get', params })
 }
 
+// 真正的近期播放；/user/record 是周／累计听歌排行，不能混用。
+export function recentPlayedSongs(limit = 20) {
+  return request({ url: '/record/recent/song', method: 'get', params: { limit: Math.min(20, Math.max(1, limit)), timestamp: Date.now() } })
+    .then(data => requireApiSuccess(data, '近期播放暂时不可用'))
+}
+
 export function userLikedSongsIDs(uid) {
   return request({
     url: '/likelist',

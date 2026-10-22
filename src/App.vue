@@ -4,6 +4,7 @@
   import { useUserStore } from '@/stores/user'
   import { usePlayerStore } from '@/stores/player'
   import { useMusicStore } from '@/stores/music'
+  import { useAiStore } from '@/stores/ai'
   import Navbar from '@/components/NavBar.vue'
   import PlayerBar from '@/components/PlayerBar.vue'
   import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -24,6 +25,9 @@
   const route = useRoute()
   const { isAutoHideActive } = useSidebarAutoHide()
   const { collapsed } = useSidebarCollapse()
+  const aiStore = useAiStore()
+  watch(() => userStore.isLoggedIn ? userStore.userInfo.id : null,
+    uid => aiStore.setAccount(uid), { immediate: true })
   // 挂载快捷键监听（内部仅安装一次）
   useShortcuts()
 

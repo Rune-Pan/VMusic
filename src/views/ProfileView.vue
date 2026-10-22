@@ -1,5 +1,6 @@
 ﻿<script setup>
   import PlaylistFormModal from '@/components/PlaylistFormModal.vue'
+  import AiSettings from '@/components/AiSettings.vue'
   import { ref, computed, onMounted, watch, nextTick } from 'vue'
   import {
     Plus,
@@ -16,7 +17,7 @@
   import { useMusicStore } from '@/stores/music'
   import { useUiStore } from '@/stores/ui'
   import { usePlayerStore } from '@/stores/player'
-  import { useRouter } from 'vue-router'
+  import { useRouter, useRoute } from 'vue-router'
   import PlaylistCard from '@/components/PlaylistCard.vue'
   import TrackList from '@/components/TrackList.vue'
   import { STORAGE_KEYS } from '@/constants'
@@ -153,13 +154,15 @@
     { key: 'appearance', label: '外观' },
     { key: 'playback', label: '播放与歌词' },
     { key: 'shortcuts', label: '快捷键' },
-    { key: 'preload', label: '预加载' }
+    { key: 'preload', label: '预加载' },
+    { key: 'ai', label: 'AI' }
   ]
   const savedSettingsSection = localStorage.getItem(STORAGE_KEYS.SETTINGS_SECTION)
   const activeSettingsSection = ref(
     settingsSections.some(section => section.key === savedSettingsSection)
       ? savedSettingsSection : 'appearance'
   )
+  const profileRoute = useRoute()
   const settingsForm = ref(null)
   const settingsTabs = ref(null)
 
@@ -213,6 +216,9 @@
   }
 
   const activeMenu = ref('liked')
+  watch(() => profileRoute?.query?.section, section => {
+    if (section === 'ai') { activeMenu.value = 'settings'; activeSettingsSection.value = 'ai' }
+  }, { immediate: true })
   const showPlaylistForm = ref(false)
   // 播放历史模式：'local' | 'week' | 'all'（参考 YesPlayMusic playHistoryMode）
   const historyMode = ref('local')
@@ -364,7 +370,7 @@
   }
 
   onMounted(async () => {
-    restoreActiveMenu()
+    if (profileRoute?.query?.section !== 'ai') restoreActiveMenu()
     if (activeMenu.value === 'liked') {
       userStore.fetchLikedTracks()
     }
@@ -936,6 +942,9 @@
                   </label>
                 </div>
               </div>
+            </section>
+            <section v-if="activeSettingsSection === 'ai'" id="settings-panel-ai" class="settings-panel" role="tabpanel" aria-labelledby="settings-tab-ai">
+              <AiSettings />
             </section>
           </div>
         </div>

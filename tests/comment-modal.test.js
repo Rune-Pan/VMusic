@@ -5,6 +5,8 @@ import { getComments } from '@/api/comment'
 import { useCommentSort } from '@/composables/useCommentSort'
 
 vi.mock('@/api/comment', () => ({ getComments: vi.fn() }))
+vi.mock('@/stores/ai', () => ({ useAiStore: () => ({ queue: vi.fn(), takePending: vi.fn() }) }))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 let wrapper, observers
 const row = id => ({
   commentId: id,
@@ -72,9 +74,9 @@ it.each(['track', 'playlist'])(
       type === 'track' ? '歌曲评论' : '歌单评论'
     )
     expect(
-      wrapper.findAll('.comment-sort button').map(button => button.text())
+      wrapper.findAll('.comment-sort button[aria-pressed]').map(button => button.text())
     ).toEqual(['最新', '最热', '推荐'])
-    expect(wrapper.get('.comment-sort button').attributes('aria-pressed')).toBe(
+    expect(wrapper.get('.comment-sort button[aria-pressed]').attributes('aria-pressed')).toBe(
       'true'
     )
     expect(getComments).toHaveBeenCalledWith({
@@ -93,7 +95,7 @@ it('切换排序清空旧列表并回到顶部，保存偏好；重新打开与�
   await open()
   wrapper.get('.comment-modal-body').element.scrollTop = 250
   getComments.mockResolvedValueOnce(page([30]))
-  await wrapper.findAll('.comment-sort button')[1].trigger('click')
+  await wrapper.findAll('.comment-sort button[aria-pressed]')[1].trigger('click')
   await flushPromises()
   expect(wrapper.get('.comment-modal-body').element.scrollTop).toBe(0)
   expect(wrapper.findAll('.comment-item')).toHaveLength(1)
@@ -112,7 +114,7 @@ it('切换排序清空旧列表并回到顶部，保存偏好；重新打开与�
     sortType: 2,
     pageNo: 1
   })
-  await wrapper.findAll('.comment-sort button')[2].trigger('click')
+  await wrapper.findAll('.comment-sort button[aria-pressed]')[2].trigger('click')
   await flushPromises()
   expect(getComments.mock.lastCall[0].sortType).toBe(99)
 })
@@ -212,7 +214,7 @@ it('加载途中可换排序，旧请求 finally 不影响新加载，迟到内�
     .mockReturnValueOnce(old.promise)
     .mockReturnValueOnce(current.promise)
   await open()
-  await wrapper.findAll('.comment-sort button')[1].trigger('click')
+  await wrapper.findAll('.comment-sort button[aria-pressed]')[1].trigger('click')
   await flushPromises()
   expect(getComments).toHaveBeenCalledTimes(2)
   old.resolve(page([99]))

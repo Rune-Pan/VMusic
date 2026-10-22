@@ -7,6 +7,8 @@
   import { COMMENT_SORT_OPTIONS, IMAGE_SIZE_AVATAR } from '@/constants'
   import { useEscClose } from '@/composables/useEscClose'
   import { useCommentSort } from '@/composables/useCommentSort'
+  import { useRouter } from 'vue-router'
+  import { useAiStore } from '@/stores/ai'
 
   const props = defineProps({
     visible: {
@@ -34,6 +36,13 @@
 
   const emit = defineEmits(['close'])
   const { sortType, setSort } = useCommentSort()
+  const router = useRouter()
+  const ai = useAiStore()
+  async function summarize() {
+    ai.queue('comments', { type: props.type, id: Number(props.id), title: props.title })
+    close()
+    try { await router.push('/ai') } catch { ai.takePending() }
+  }
 
   const comments = ref([])
   const loading = ref(false)
@@ -188,6 +197,7 @@
           >
             {{ option.label }}
           </button>
+          <button class="comment-ai" type="button" @click="summarize">AI 总结</button>
         </div>
 
         <div
@@ -365,6 +375,7 @@
     color: var(--color-accent-ink);
     font-weight: 600;
   }
+  .comment-sort .comment-ai { margin-left: auto; color: var(--color-accent-ink); }
 
   .comment-retry {
     display: flex;

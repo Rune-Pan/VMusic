@@ -17,6 +17,12 @@ const router = createRouter({
   },
   routes: [
     {
+      path: '/ai',
+      name: 'ai',
+      component: () => import('@/views/AiView.vue'),
+      meta: { requiresAuth: true, title: 'AI 助手 - 听潮' }
+    },
+    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),

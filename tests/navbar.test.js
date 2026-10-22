@@ -27,6 +27,7 @@ async function open(path = '/') {
     ['/', 'home'],
     ['/daily-recommend', 'daily-recommend'],
     ['/toplist', 'toplist'],
+    ['/ai', 'ai'],
     ['/profile', 'profile'],
     ['/playlist/:id', 'playlist']
   ]
@@ -53,10 +54,11 @@ it.each([
   ['/', '首页'],
   ['/daily-recommend', '每日推荐'],
   ['/toplist', '排行榜'],
+  ['/ai', 'AI 助手'],
   ['/profile', '个人中心']
 ])('短面板保留入口 %s 的跳转及当前页语义', async (path, label) => {
   await open('/playlist/1')
-  expect(wrapper.findAll('.nav-link')).toHaveLength(4)
+  expect(wrapper.findAll('.nav-link')).toHaveLength(5)
   await wrapper.get(`.nav-link[href="${path}"]`).trigger('click')
   await flushPromises()
   expect(router.currentRoute.value.path).toBe(path)
@@ -65,12 +67,12 @@ it.each([
   expect(active[0].text()).toBe(label)
 })
 
-it('侧栏仅保留四个导航入口，不显示顶部品牌和底部标语', async () => {
+it('侧栏包括AI入口，不显示顶部品牌和底部标语', async () => {
   await open('/profile')
   expect(wrapper.find('.brand-home').exists()).toBe(false)
   expect(wrapper.find('[data-brand="tide"]').exists()).toBe(false)
   expect(wrapper.find('.sidebar-footer').exists()).toBe(false)
-  expect(wrapper.findAll('.nav-link')).toHaveLength(4)
+  expect(wrapper.findAll('.nav-link')).toHaveLength(5)
   await wrapper.get('.nav-link[href="/"]').trigger('click')
   await flushPromises()
   expect(router.currentRoute.value.path).toBe('/')
@@ -121,7 +123,7 @@ it('折叠状态保留完整入口名称、当前页语义，且仅设置控制�
   await flushPromises()
   expect(wrapper.classes()).toContain('collapsed')
   expect(wrapper.findAll('.nav-link').map(link => link.attributes('aria-label')))
-    .toEqual(['首页', '每日推荐', '排行榜', '个人中心'])
+    .toEqual(['首页', '每日推荐', '排行榜', 'AI 助手', '个人中心'])
   expect(wrapper.get('[aria-current="page"]').attributes('aria-label')).toBe('个人中心')
   expect(wrapper.findAll('.sidebar-navigation button')).toHaveLength(0)
   await wrapper.get('.nav-link[href="/daily-recommend"]').trigger('click')

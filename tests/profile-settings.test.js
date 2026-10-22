@@ -11,7 +11,8 @@ vi.mock('@/stores/user', () => ({ useUserStore: () => state.user }))
 vi.mock('@/stores/music', () => ({ useMusicStore: () => state.music }))
 vi.mock('@/stores/player', () => ({ usePlayerStore: () => state.player }))
 vi.mock('@/stores/ui', () => ({ useUiStore: () => state.ui }))
-vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+vi.mock('@/components/AiSettings.vue', () => ({ default: { template: '<div>AI连接设置</div>' } }))
+vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn() }), useRoute: () => state.route }))
 vi.mock('@/api/user', () => ({ userPlaylist: vi.fn(async () => ({ playlist: [] })) }))
 vi.mock('@/utils/db', () => ({ clearTrackSourceCache: vi.fn(async () => {}) }))
 vi.mock('@/composables/useTheme', () => ({ useTheme: () => state.theme }))
@@ -34,6 +35,7 @@ beforeEach(() => {
     likedTracks: [], likedTracksLoading: false,
     fetchLikedTracks: vi.fn(), setShowVipBadge: vi.fn()
   })
+  state.route = { query: {} }
   state.music = { serverPlayHistory: {}, fetchPlayHistory: vi.fn() }
   state.player = { playHistory: [], play: vi.fn(), togglePlay: vi.fn(), prev: vi.fn(), next: vi.fn() }
   state.ui = { showToast: vi.fn(), showConfirm: vi.fn() }
@@ -67,6 +69,14 @@ async function open(saved) {
 const tab = key => wrapper.get(`#settings-tab-${key}`)
 const visiblePanels = () => wrapper.findAll('[role="tabpanel"]').filter(panel => panel.isVisible())
 
+it('AI助手设置链接优先于旧菜单记忆，初始化顺序正确', async () => {
+  state.route.query.section = 'ai'
+  localStorage.setItem(STORAGE_KEYS.PROFILE_ACTIVE_MENU, 'liked')
+  await open()
+  expect(tab('ai').attributes('aria-selected')).toBe('true')
+  expect(wrapper.text()).toContain('AI连接设置')
+})
+
 it.each([undefined, '', 'unknown', '{bad'])('缺失或无效分类回到外观：%s', async saved => {
   await open(saved)
   expect(tab('appearance').attributes('aria-selected')).toBe('true')
@@ -88,8 +98,8 @@ it('恢复有效分类，切换后本机保存并可重新挂载恢复', async (
 it('方向键循环、Home/End切换并保留正确焦点及ARIA关系', async () => {
   await open()
   for (const [from, key, to] of [
-    ['appearance', 'ArrowLeft', 'preload'], ['preload', 'ArrowRight', 'appearance'],
-    ['appearance', 'End', 'preload'], ['preload', 'Home', 'appearance'],
+    ['appearance', 'ArrowLeft', 'ai'], ['ai', 'ArrowRight', 'appearance'],
+    ['appearance', 'End', 'ai'], ['ai', 'Home', 'appearance'],
     ['appearance', 'ArrowRight', 'playback']
   ]) {
     await tab(from).trigger('keydown', { key })
