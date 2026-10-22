@@ -65,13 +65,13 @@ it.each([
   expect(active[0].text()).toBe(label)
 })
 
-it('单行潮汐品牌返回首页，副标和底部标语不再显示', async () => {
+it('侧栏仅保留四个导航入口，不显示顶部品牌和底部标语', async () => {
   await open('/profile')
-  expect(wrapper.get('.brand-wordmark').text()).toBe('听潮')
-  expect(wrapper.find('.brand-mark [data-brand="tide"]').exists()).toBe(true)
+  expect(wrapper.find('.brand-home').exists()).toBe(false)
+  expect(wrapper.find('[data-brand="tide"]').exists()).toBe(false)
   expect(wrapper.find('.sidebar-footer').exists()).toBe(false)
-  expect(wrapper.get('.sidebar-navigation').text()).not.toContain('VMusic')
-  await wrapper.get('[aria-label="听潮首页"]').trigger('click')
+  expect(wrapper.findAll('.nav-link')).toHaveLength(4)
+  await wrapper.get('.nav-link[href="/"]').trigger('click')
   await flushPromises()
   expect(router.currentRoute.value.path).toBe('/')
 })
@@ -123,7 +123,7 @@ it('折叠状态保留完整入口名称、当前页语义，且仅设置控制�
   expect(wrapper.findAll('.nav-link').map(link => link.attributes('aria-label')))
     .toEqual(['首页', '每日推荐', '排行榜', '个人中心'])
   expect(wrapper.get('[aria-current="page"]').attributes('aria-label')).toBe('个人中心')
-  expect(wrapper.findAll('.sidebar-navigation button')).toHaveLength(1)
+  expect(wrapper.findAll('.sidebar-navigation button')).toHaveLength(0)
   await wrapper.get('.nav-link[href="/daily-recommend"]').trigger('click')
   await flushPromises()
   expect(router.currentRoute.value.name).toBe('daily-recommend')

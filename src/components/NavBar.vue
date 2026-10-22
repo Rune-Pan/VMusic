@@ -13,7 +13,6 @@
     CalendarDays,
     ChartNoAxesColumnIncreasing
   } from '@/components/icons'
-  import BrandMark from '@/components/BrandMark.vue'
   import GlassSurface from '@/components/GlassSurface.vue'
   import { useUserStore } from '@/stores/user'
   import { useMusicStore } from '@/stores/music'
@@ -161,9 +160,6 @@
     showUserMenu.value = false
     router.push({ name: 'profile' })
   }
-  function goToHome() {
-    router.push({ name: 'home' })
-  }
 
   function onNavigationKeydown(event) {
     if (
@@ -217,10 +213,6 @@
       @keydown="onSidebarKeydown"
     >
       <GlassSurface as="aside" class="sidebar-navigation" aria-label="主导航">
-        <button class="brand-home" aria-label="听潮首页" @click="goToHome">
-          <span class="brand-mark"><BrandMark :size="22" /></span>
-          <span class="brand-wordmark">听潮</span>
-        </button>
         <nav class="primary-navigation">
           <router-link
             v-for="item in navigation"
@@ -333,37 +325,9 @@
     padding: 16px;
     border-radius: 24px;
   }
-  .brand-home {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 36px;
-    padding: 0 8px;
-    border-radius: 16px;
-    text-align: left;
-  }
-  .brand-mark {
-    display: grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    flex-shrink: 0;
-    border-radius: 10px;
-    color: var(--color-primary);
-    background: var(--color-primary-bg);
-    box-shadow: inset 0 1px 0 var(--glass-highlight);
-  }
-  .brand-wordmark {
-    font-size: 20px;
-    font-weight: 720;
-    letter-spacing: -0.03em;
-    line-height: 1.15;
-    white-space: nowrap;
-  }
   .primary-navigation {
     display: grid;
     gap: 6px;
-    margin-top: 12px;
   }
   .nav-link {
     display: flex;
@@ -394,22 +358,19 @@
   .collapsed .sidebar-navigation {
     padding: 12px;
   }
-  .collapsed :is(.brand-home, .nav-link) {
+  .collapsed .nav-link {
     position: relative;
     justify-content: center;
     gap: 0;
     padding-inline: 0;
   }
-  .collapsed .brand-home {
-    height: 44px;
-  }
-  .collapsed :is(.brand-wordmark, .nav-link > span) {
+  .collapsed .nav-link > span {
     display: none;
   }
   .collapsed .nav-link:hover {
     transform: none;
   }
-  .collapsed :is(.brand-home, .nav-link)::after {
+  .collapsed .nav-link::after {
     content: attr(aria-label);
     position: absolute;
     left: calc(100% + 24px);
@@ -429,7 +390,7 @@
     visibility: hidden;
     pointer-events: none;
   }
-  .collapsed :is(.brand-home, .nav-link):is(:hover, :focus-visible)::after {
+  .collapsed .nav-link:is(:hover, :focus-visible)::after {
     opacity: 1;
     visibility: visible;
   }
