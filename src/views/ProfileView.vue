@@ -162,6 +162,25 @@
   const settingsForm = ref(null)
   const settingsTabs = ref(null)
 
+  watch(settingsForm, (form, _, onCleanup) => {
+    if (!form) return
+    const container = getPageScrollContainer()
+    // Clip the panel behind the sticky tabs so its fill cannot square off their corners.
+    const updateClip = () => {
+      if (!settingsTabs.value) return
+      const top = Math.max(0,
+        settingsTabs.value.getBoundingClientRect().top - form.getBoundingClientRect().top)
+      form.style.setProperty('--settings-clip-top', `${top}px`)
+    }
+    updateClip()
+    container?.addEventListener('scroll', updateClip, { passive: true })
+    window.addEventListener('resize', updateClip)
+    onCleanup(() => {
+      container?.removeEventListener('scroll', updateClip)
+      window.removeEventListener('resize', updateClip)
+    })
+  }, { flush: 'post' })
+
   async function selectSettingsSection(key) {
     const container = getPageScrollContainer()
     const top = container && settingsForm.value

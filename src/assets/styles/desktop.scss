@@ -212,6 +212,7 @@ body .app-container .profile-view .settings-form {
   --settings-player-space: 0px;
   background: var(--surface-content);
   border-radius: 24px;
+  clip-path: inset(var(--settings-clip-top, 0px) 0 0 round 24px);
 }
 body .app-container > .main-content.has-player .settings-form {
   --settings-player-space: calc(var(--player-height) + var(--shell-gap) * 2);

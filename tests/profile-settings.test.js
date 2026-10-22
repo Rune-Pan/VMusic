@@ -54,6 +54,7 @@ beforeEach(() => {
 afterEach(() => {
   wrapper?.unmount()
   shell.remove()
+  vi.unstubAllGlobals()
 })
 async function open(saved) {
   if (saved !== undefined) localStorage.setItem(STORAGE_KEYS.SETTINGS_SECTION, saved)
@@ -128,6 +129,40 @@ it('滚动深处切换分类回到设置起点，未到设置顶部时保持原�
   await tab('appearance').trigger('click')
   await flushPromises()
   expect(container.scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: 'instant' })
+})
+
+it('设置圆角裁切跟随吸顶位置，回到起点及窗口变化后同步恢复', async () => {
+  await open()
+  const form = wrapper.get('.settings-form').element
+  const formRect = vi.spyOn(form, 'getBoundingClientRect').mockReturnValue({ top: -118 })
+  vi.spyOn(wrapper.get('.settings-tabs').element, 'getBoundingClientRect').mockReturnValue({ top: 82 })
+  container.dispatchEvent(new Event('scroll'))
+  expect(form.style.getPropertyValue('--settings-clip-top')).toBe('200px')
+  formRect.mockReturnValue({ top: 100 })
+  window.dispatchEvent(new Event('resize'))
+  expect(form.style.getPropertyValue('--settings-clip-top')).toBe('0px')
+})
+
+it('离开设置及卸载后清理圆角监听，重新进入时恢复', async () => {
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+  await open()
+  const form = wrapper.get('.settings-form').element
+  const measure = vi.spyOn(form, 'getBoundingClientRect')
+  await wrapper.findAll('.menu-item').find(button => button.text().includes('喜欢的歌曲')).trigger('click')
+  await flushPromises()
+  measure.mockClear()
+  container.dispatchEvent(new Event('scroll'))
+  window.dispatchEvent(new Event('resize'))
+  expect(measure).not.toHaveBeenCalled()
+  await wrapper.findAll('.menu-item').find(button => button.text().includes('个人设置')).trigger('click')
+  await flushPromises()
+  const newForm = wrapper.get('.settings-form').element
+  expect(newForm.style.getPropertyValue('--settings-clip-top')).toBe('0px')
+  const newMeasure = vi.spyOn(newForm, 'getBoundingClientRect')
+  wrapper.unmount()
+  container.dispatchEvent(new Event('scroll'))
+  window.dispatchEvent(new Event('resize'))
+  expect(newMeasure).not.toHaveBeenCalled()
 })
 
 it('录制冲突后切换分类清除临时状态，已保存键位不变', async () => {
