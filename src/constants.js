@@ -17,12 +17,19 @@ export const STORAGE_KEYS = {
   COVER_ROTATION: 'vmusic-cover-rotation',
   LYRIC_FONT_SIZE: 'vmusic-lyric-font-size',
   LYRIC_COLORS: 'vmusic-lyric-colors',
+  COMMENT_SORT: 'vmusic-comment-sort',
   SHOW_LYRICS_TRANSLATION: 'vmusic-show-lyrics-translation',
   SHOW_LYRICS_TIME: 'vmusic-show-lyrics-time',
   SHORTCUTS_ENABLED: 'vmusic-shortcuts-enabled',
   SHORTCUTS: 'vmusic-shortcuts',
   PRELOAD: 'vmusic-preload'
 }
+
+export const COMMENT_SORT_OPTIONS = [
+  { value: 3, label: '最新' },
+  { value: 2, label: '最热' },
+  { value: 99, label: '推荐' }
+]
 
 // 音质选项（参考上游 YesPlayMusic musicQuality）
 // short 用于分段按钮短标签，label 用于 select 等长文案

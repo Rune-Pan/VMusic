@@ -175,26 +175,3 @@ export function subscribePlaylist(id, subscribed) {
   return request({ url: '/playlist/subscribe', method: 'post', params: { id, t: subscribed ? 1 : 2, timestamp: Date.now() } })
     .then(data => requireApiSuccess(data, '收藏操作失败'))
 }
-
-// 获取歌单评论
-// SWR：仅缓存首页（offset=0），命中秒开 + 过期后台刷新；loadMore 走网络
-export function getPlaylistComments(params) {
-  const cacheKey = `comment:playlist:${params.id}`
-  const fetchLatest = () =>
-    request({ url: '/comment/playlist', method: 'get', params })
-  if (params.offset && params.offset > 0) return fetchLatest()
-
-  const fetchAndCache = async () => {
-    const data = await fetchLatest()
-    if (data?.comments?.length) cacheMisc(cacheKey, data).catch(() => {})
-    return data
-  }
-
-  return getMiscFromCache(cacheKey).then(async cached => {
-    if (cached) {
-      if (cached.stale) fetchAndCache().catch(() => {})
-      return cached.data
-    }
-    return fetchAndCache()
-  })
-}

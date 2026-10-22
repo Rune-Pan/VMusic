@@ -2,11 +2,11 @@
   import GlassSurface from '@/components/GlassSurface.vue'
   import { ref, watch, computed, onBeforeUnmount, nextTick } from 'vue'
   import { X, ThumbsUp, Loader2 } from '@/components/icons'
-  import { getSongComments } from '@/api/track'
-  import { getPlaylistComments } from '@/api/playlist'
+  import { getComments } from '@/api/comment'
   import { resizeImage, formatRelativeTime } from '@/utils/common'
-  import { IMAGE_SIZE_AVATAR } from '@/constants'
+  import { COMMENT_SORT_OPTIONS, IMAGE_SIZE_AVATAR } from '@/constants'
   import { useEscClose } from '@/composables/useEscClose'
+  import { useCommentSort } from '@/composables/useCommentSort'
 
   const props = defineProps({
     visible: {
@@ -33,12 +33,15 @@
   )
 
   const emit = defineEmits(['close'])
+  const { sortType, setSort } = useCommentSort()
 
   const comments = ref([])
   const loading = ref(false)
   const error = ref('')
   const hasMore = ref(false)
-  const offset = ref(0)
+  let pageNo = 1
+  let cursor = ''
+  let generation = 0
   const LIMIT = 20
 
   // 滚动触底自动加载哨兵
@@ -47,10 +50,23 @@
   let observer = null
 
   function setupObserver() {
-    if (observer || !sentinel.value || !scrollContainer.value) return
+    if (
+      observer ||
+      !props.visible ||
+      !hasMore.value ||
+      error.value ||
+      !sentinel.value ||
+      !scrollContainer.value
+    )
+      return
     observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && hasMore.value && !loading.value) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore.value &&
+          !loading.value &&
+          !error.value
+        ) {
           loadComments()
         }
       },
@@ -67,68 +83,85 @@
     }
   }
 
-  // formatTime 已移除，使用 formatRelativeTime（来自 @/utils/common）
-
-  async function loadComments(reset = false) {
-    if (!props.id) return
-    if (reset) {
-      offset.value = 0
-      comments.value = []
-    }
-    if (loading.value) return
-
+  async function loadComments() {
+    if (!props.visible || !props.id || loading.value) return
+    const token = generation
+    teardownObserver()
     loading.value = true
     error.value = ''
     try {
-      const params = { id: props.id, limit: LIMIT, offset: offset.value }
-      const data =
-        props.type === 'playlist'
-          ? await getPlaylistComments(params)
-          : await getSongComments(params)
-      const list = data.comments || []
-      comments.value.push(...list)
-      hasMore.value = list.length === LIMIT && data.more !== false
-      offset.value += list.length
-      // 首屏数据回来后哨兵才渲染，此时补建 observer
-      if (!observer && comments.value.length > 0) {
-        nextTick(setupObserver)
+      const data = await getComments({
+        type: props.type,
+        id: props.id,
+        sortType: sortType.value,
+        pageNo,
+        pageSize: LIMIT,
+        cursor
+      })
+      if (token !== generation) return
+      const seen = new Set(
+        comments.value.map(comment => String(comment.commentId))
+      )
+      const list = data.comments.filter(comment => {
+        const id = String(comment.commentId)
+        if (seen.has(id)) return false
+        seen.add(id)
+        return true
+      })
+      if (
+        data.hasMore &&
+        (!list.length ||
+          (sortType.value === 3 && (!data.cursor || data.cursor === cursor)))
+      ) {
+        throw new Error('暂时没有加载到更多评论，请重试')
       }
+      comments.value.push(...list)
+      hasMore.value = data.hasMore
+      cursor = data.cursor
+      pageNo++
     } catch (e) {
-      error.value = '评论加载失败，请稍后重试'
-      console.error('Failed to load comments:', e)
+      if (token === generation)
+        error.value = e.message || '评论加载失败，请稍后重试'
     } finally {
-      loading.value = false
+      if (token === generation) {
+        loading.value = false
+        await nextTick()
+        if (token === generation) setupObserver()
+      }
     }
   }
 
   function close() {
+    generation++
+    teardownObserver()
     emit('close')
   }
 
   useEscClose(() => props.visible, close)
 
   watch(
-    () => props.visible,
-    visible => {
-      if (visible) {
-        loadComments(true)
-        nextTick(setupObserver)
-      } else {
-        teardownObserver()
-      }
-    }
-  )
-
-  watch(
-    () => props.id,
+    [() => props.visible, () => props.type, () => props.id, sortType],
     () => {
+      generation++
+      teardownObserver()
+      comments.value = []
+      loading.value = false
+      error.value = ''
+      hasMore.value = false
+      pageNo = 1
+      cursor = ''
       if (props.visible) {
-        loadComments(true)
+        if (scrollContainer.value) scrollContainer.value.scrollTop = 0
+        loadComments()
       }
-    }
+    },
+    { immediate: true }
   )
 
-  onBeforeUnmount(teardownObserver)
+  onBeforeUnmount(() => {
+    generation++
+    teardownObserver()
+  })
 </script>
 
 <template>
@@ -145,7 +178,23 @@
           </button>
         </div>
 
-        <div ref="scrollContainer" class="comment-modal-body">
+        <div class="comment-sort" role="group" aria-label="评论排序">
+          <button
+            v-for="option in COMMENT_SORT_OPTIONS"
+            :key="option.value"
+            type="button"
+            :aria-pressed="sortType === option.value"
+            @click="setSort(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+
+        <div
+          ref="scrollContainer"
+          class="comment-modal-body"
+          :aria-busy="loading"
+        >
           <div v-if="comments.length > 0" class="comment-list">
             <div
               v-for="comment in comments"
@@ -169,16 +218,24 @@
                 <div class="comment-text">{{ comment.content }}</div>
                 <div class="comment-likes">
                   <ThumbsUp :size="12" />
-                  <span>{{ comment.likedCount || 0 }}</span>
+                  <span>
+                    {{
+                      Number(comment.likedCount || 0).toLocaleString('en-US')
+                    }}
+                  </span>
                 </div>
               </div>
             </div>
 
             <!-- 滚动触底哨兵：进入视口自动 loadMore -->
             <div ref="sentinel" class="sentinel" aria-hidden="true"></div>
-            <div v-if="loading" class="load-more">
+            <div v-if="loading" class="load-more" role="status">
               <Loader2 class="spin" :size="16" />
               <span>加载中...</span>
+            </div>
+            <div v-else-if="error" class="comment-retry" role="status">
+              <span>{{ error }}</span>
+              <button type="button" @click="loadComments">重试</button>
             </div>
             <div v-else-if="!hasMore" class="no-more">没有更多评论了</div>
           </div>
@@ -186,13 +243,15 @@
           <div
             v-else-if="loading && comments.length === 0"
             class="comment-empty"
+            role="status"
           >
             <Loader2 class="spin" :size="24" />
             <span>正在加载评论...</span>
           </div>
 
-          <div v-else-if="error" class="comment-empty error">
-            {{ error }}
+          <div v-else-if="error" class="comment-empty error" role="status">
+            <span>{{ error }}</span>
+            <button type="button" @click="loadComments">重试</button>
           </div>
 
           <div v-else class="comment-empty">暂无评论</div>
@@ -277,8 +336,53 @@
 
   .comment-modal-body {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: var(--spacing-sm) var(--spacing-lg);
+  }
+
+  .comment-sort {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .comment-sort button {
+    padding: 8px 16px;
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
+  .comment-sort button:hover {
+    background: var(--color-secondary-bg-hover);
+  }
+
+  .comment-sort button[aria-pressed='true'] {
+    background: var(--color-primary-bg);
+    color: var(--color-accent-ink);
+    font-weight: 600;
+  }
+
+  .comment-retry {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) 0;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    text-align: center;
+  }
+
+  .comment-retry button,
+  .comment-empty button {
+    padding: 6px 16px;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-bg);
+    color: var(--color-accent-ink);
   }
 
   .comment-list {

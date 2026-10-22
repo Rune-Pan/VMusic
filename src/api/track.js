@@ -6,8 +6,6 @@ import {
   getTrackDetailFromCache,
   cacheTrackSource,
   getTrackSourceFromCache,
-  cacheMisc,
-  getMiscFromCache,
   clearTrackSourceCache
 } from '@/utils/db'
 import { STORAGE_KEYS, DEFAULT_MUSIC_QUALITY } from '@/constants'
@@ -112,28 +110,4 @@ export function likeSong(params) {
   return request({ url: '/like', method: 'get', params }).then(data =>
     requireApiSuccess(data, '喜欢操作失败')
   )
-}
-
-// 参考 NeteaseCloudMusicApi module/comment_music：获取歌曲评论
-// SWR：仅缓存首页（offset=0），命中秒开 + 过期后台刷新；loadMore 走网络
-export function getSongComments(params) {
-  const cacheKey = `comment:track:${params.id}`
-  const fetchLatest = () =>
-    request({ url: '/comment/music', method: 'get', params })
-  // 非首页不缓存
-  if (params.offset && params.offset > 0) return fetchLatest()
-
-  const fetchAndCache = async () => {
-    const data = await fetchLatest()
-    if (data?.comments?.length) cacheMisc(cacheKey, data).catch(() => {})
-    return data
-  }
-
-  return getMiscFromCache(cacheKey).then(async cached => {
-    if (cached) {
-      if (cached.stale) fetchAndCache().catch(() => {})
-      return cached.data
-    }
-    return fetchAndCache()
-  })
 }
