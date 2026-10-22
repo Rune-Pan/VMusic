@@ -12,6 +12,7 @@
   } from '@/constants'
   import { getTrackDetail } from '@/api/track'
   import { useCoverRotation } from '@/composables/useCoverRotation'
+  import { useLyricColors } from '@/composables/useLyricColors'
 
   // 歌词翻译开关（参考上游 YesPlayMusic showLyricsTranslation）
   const showLyricsTranslation =
@@ -70,7 +71,11 @@
   const lyricFontSize =
     Number(localStorage.getItem(STORAGE_KEYS.LYRIC_FONT_SIZE)) ||
     DEFAULT_LYRIC_FONT_SIZE
-  const lyricStyle = { '--lyric-font-size': `${lyricFontSize}px` }
+  const { colorStyle } = useLyricColors()
+  const lyricStyle = computed(() => ({
+    ...colorStyle.value,
+    '--lyric-font-size': `${lyricFontSize}px`
+  }))
 
   const detailTrack = ref(null)
   const track = computed(() =>
@@ -385,7 +390,7 @@
   .lyric-line {
     padding: 12px 0;
     overflow-wrap: anywhere;
-    color: var(--color-text-secondary);
+    color: var(--lyric-normal-color, var(--color-text-secondary));
     cursor: pointer;
     transition:
       color 220ms ease,
@@ -407,11 +412,14 @@
     font-variant-numeric: tabular-nums;
   }
   .lyric-line.active {
-    color: var(--color-text);
+    color: var(--lyric-active-color, var(--color-text));
     transform: scale(1.025);
   }
   .lyric-line:hover {
-    color: var(--color-primary);
+    color: var(--lyric-normal-color, var(--color-primary));
+  }
+  .lyric-line.active:hover {
+    color: var(--lyric-active-color, var(--color-primary));
   }
   .no-lyric {
     padding-block: 48px;

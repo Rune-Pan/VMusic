@@ -41,6 +41,7 @@
   import { useSidebarAutoHide } from '@/composables/useSidebarAutoHide'
   import { useSidebarCollapse } from '@/composables/useSidebarCollapse'
   import { useCoverRotation } from '@/composables/useCoverRotation'
+  import LyricColorSettings from '@/components/LyricColorSettings.vue'
 
   const userStore = useUserStore()
   const musicStore = useMusicStore()
@@ -734,7 +735,7 @@
               role="tabpanel"
               aria-labelledby="settings-tab-playback"
             >
-              <p class="settings-panel-note">音质在下次播放时生效；歌词设置在重新进入播放页后生效。</p>
+              <p class="settings-panel-note">音质在下次播放时生效；歌词颜色即时保存，其余歌词设置在重新进入播放页后生效。</p>
               <div class="form-group">
                 <label class="form-label">音质</label>
                 <div class="quality-segmented" role="group" aria-label="音质选择">
@@ -799,6 +800,7 @@
                   </button>
                 </div>
               </div>
+              <LyricColorSettings />
               <div class="form-group">
                 <div class="toggle-row">
                   <label class="toggle-label" for="settings-lyrics-translation">显示歌词翻译</label>

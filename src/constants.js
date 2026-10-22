@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   MUSIC_QUALITY: 'vmusic-music-quality',
   COVER_ROTATION: 'vmusic-cover-rotation',
   LYRIC_FONT_SIZE: 'vmusic-lyric-font-size',
+  LYRIC_COLORS: 'vmusic-lyric-colors',
   SHOW_LYRICS_TRANSLATION: 'vmusic-show-lyrics-translation',
   SHOW_LYRICS_TIME: 'vmusic-show-lyrics-time',
   SHORTCUTS_ENABLED: 'vmusic-shortcuts-enabled',
@@ -40,6 +41,15 @@ export const LYRIC_FONT_SIZE_OPTIONS = [
   { value: 28, short: '大' }
 ]
 export const DEFAULT_LYRIC_FONT_SIZE = 16
+
+export const LYRIC_COLOR_OPTIONS = [
+  { label: '白色', value: '#F1F4F8' },
+  { label: '石墨', value: '#202733' },
+  { label: '蓝色', value: '#60A5FA' },
+  { label: '紫色', value: '#A78BFA' },
+  { label: '玫红', value: '#FB7185' },
+  { label: '绿色', value: '#4ADE80' }
+]
 
 // 主题选项（auto 跟随系统）
 export const THEME_OPTIONS = [

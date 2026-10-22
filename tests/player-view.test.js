@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/stores/player'
 import { useMusicStore } from '@/stores/music'
 import { STORAGE_KEYS } from '@/constants'
 import { useShortcuts } from '@/composables/useShortcuts'
+import { useLyricColors } from '@/composables/useLyricColors'
 
 vi.mock('howler', () => ({ Howler: { volume: vi.fn() }, Howl: vi.fn() }))
 vi.mock('@/api/track', () => ({
@@ -20,6 +21,7 @@ let pinia, wrapper, player, music
 const track = id => ({ id, name: `Track ${id}`, ar: [], al: {} })
 beforeEach(() => {
   localStorage.clear()
+  useLyricColors().resetColors()
   pinia = createPinia()
   setActivePinia(pinia)
   player = usePlayerStore()
@@ -128,4 +130,30 @@ it('空格跳歌词不会再触发全局播放/暂停快捷键', async () => {
     .trigger('keydown', { key: ' ', code: 'Space' })
   expect(seek).toHaveBeenCalledWith(1000)
   expect(togglePlay).not.toHaveBeenCalled()
+})
+
+it('歌词颜色实时更新及恢复，不触发播放、切歌、定位或音频重建', async () => {
+  localStorage.setItem(STORAGE_KEYS.SHOW_LYRICS_TIME, 'true')
+  player.currentTrack = track(1)
+  const play = vi.spyOn(player, 'play')
+  const seek = vi.spyOn(player, 'seek')
+  const next = vi.spyOn(player, 'next')
+  await open(1)
+  music.currentLyrics = [{ time: 1, content: '原文', translation: 'Translation' }]
+  const colors = useLyricColors()
+  colors.setColor('active', '#123456')
+  colors.setColor('normal', '#ABCDEF')
+  await flushPromises()
+  const view = wrapper.get('.player-view').element
+  expect(view.style.getPropertyValue('--lyric-active-color')).toBe('#123456')
+  expect(view.style.getPropertyValue('--lyric-normal-color')).toBe('#ABCDEF')
+  expect(wrapper.find('.lyric-translation').exists()).toBe(true)
+  expect(wrapper.find('.lyric-time').exists()).toBe(true)
+  colors.resetColors()
+  await flushPromises()
+  expect(view.style.getPropertyValue('--lyric-active-color')).toBe('')
+  expect(view.style.getPropertyValue('--lyric-normal-color')).toBe('')
+  expect(play).not.toHaveBeenCalled()
+  expect(seek).not.toHaveBeenCalled()
+  expect(next).not.toHaveBeenCalled()
 })

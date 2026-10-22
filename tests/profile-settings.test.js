@@ -204,6 +204,19 @@ it('音质及歌词设置继续沿用原事件和本机存储', async () => {
   expect(state.ui.showToast).toHaveBeenLastCalledWith('设置已更新，重新进入播放页生效', 'success')
 })
 
+it('歌词颜色位于播放与歌词分类，自动保存且不操作播放器', async () => {
+  await open('playback')
+  expect(wrapper.get('.lyric-color-settings').isVisible()).toBe(true)
+  await wrapper.get('[aria-label="当前行：蓝色"]').trigger('click')
+  expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.LYRIC_COLORS)).active).toBe('#60A5FA')
+  expect(wrapper.get('.settings-panel-note').text()).toContain('歌词颜色即时保存')
+  expect(state.player.play).not.toHaveBeenCalled()
+  expect(state.player.togglePlay).not.toHaveBeenCalled()
+  expect(state.player.next).not.toHaveBeenCalled()
+  await tab('appearance').trigger('click')
+  expect(wrapper.get('.lyric-color-settings').isVisible()).toBe(false)
+})
+
 it('VIP开关按身份显示，预加载子项只随总开关展示', async () => {
   await open()
   expect(wrapper.find('#settings-vip-badge').exists()).toBe(false)
